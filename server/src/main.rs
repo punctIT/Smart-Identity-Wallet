@@ -8,5 +8,6 @@ fn main() {
         .set_ip(String::from("0.0.0.0"))
         .set_port(1234)
         .bind_and_listen()
+        .set_terminator(String::from("ABC"))
         .accept_connection();
 }
