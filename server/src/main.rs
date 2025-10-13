@@ -1,13 +1,11 @@
 mod network;
 
-use crate::network::server_configure::ServerConfig;
+use crate::network::server_https::HTTPServer;
 
-fn main() {
-    let mut server: ServerConfig = ServerConfig::new();
-    server
-        .set_ip(String::from("0.0.0.0"))
-        .set_port(1234)
-        .bind_and_listen()
-        .set_terminator(String::from("ABC"))
-        .accept_connection();
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let server = HTTPServer::new();
+    server.start().await?; // ✅ Acum merge cu instanța
+
+    Ok(())
 }

@@ -38,7 +38,7 @@ class MyApp(App):
         return layout
 
     def go_next(self, instance):
-        self.server.sent(self.text_input.text+"ABC")
+        self.server.send_specific_message("user_data",self.text_input.text)
 
     def on_message_update(self, instance, value):
         print("🟢 Eveniment (signal):", value)
