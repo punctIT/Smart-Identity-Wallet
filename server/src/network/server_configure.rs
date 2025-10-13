@@ -96,10 +96,11 @@ impl ServerConfig {
                             command.push_str(&msg[..index]);
                             println!("RECEIVED COMMAND: {}", command);
                             if authentificaton_status {
+                                
                             } else {
                                 if let Err(e) = stream.write_all(
                                     custom_protocol
-                                        .set_text(String::from("must loggin"))
+                                        .set_text(String::from(&msg))
                                         .get_text()
                                         .unwrap()
                                         .as_bytes(),
