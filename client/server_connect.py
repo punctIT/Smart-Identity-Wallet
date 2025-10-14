@@ -19,6 +19,7 @@ class ServerConnection(Label):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.session = requests.Session()
+        self.token=""
         # Acceptă certificatele self-signed
         self.session.verify = False
         
@@ -61,7 +62,7 @@ class ServerConnection(Label):
                 "message_type": message_type,
                 "user_id": "punctITok", 
                 "content": content,
-                "parameters": parameters
+                "token": self.token
             }
             
             response = self.session.post(
@@ -82,37 +83,47 @@ class ServerConnection(Label):
             self.last_message = f"❌ Eroare: {str(e)}"
             return None
 
-
-    def authenticate(self, username, certificate_data=None):
-        """Autentificare cu serverul"""
+    def send_login(self, username, password):
+        """Trimite request de login la server"""
         try:
             payload = {
                 "username": username,
-                "certificate": certificate_data or "client_cert_data",
-                "timestamp": datetime.now().isoformat()
+                "password": password, 
             }
             
             response = self.session.post(
-                f"{SERVER_URL}/api/auth", 
+                f"{SERVER_URL}/login", 
                 json=payload, 
                 timeout=5
             )
             
             if response.status_code == 200:
                 data = response.json()
-                if data.get('authenticated'):
-                    self.last_message = f"🔐 Autentificat cu succes! Token primit."
-                    return data.get('token')
+                
+                if data.get('success', False):
+                    # Salvează tokenul pentru requesturile viitoare
+                    self.token = data.get('token')
+                    if self.token:
+                        self.session.headers.update({
+                            'Authorization': f'Bearer {self.token}'
+                        })
+                    
+                    # Afișează mesajul de succes
+                    self.last_message = f"✅ {data.get('message', 'Login reușit')}"
+                    return data
                 else:
-                    self.last_message = f"❌ Autentificare eșuată"
+                    # Login eșuat
+                    self.last_message = f"❌ {data.get('message', 'Login eșuat')}"
                     return None
             else:
-                self.last_message = f"❌ Eroare autentificare: {response.status_code}"
+                self.last_message = f"❌ Eroare HTTP: {response.status_code}"
                 return None
                 
         except Exception as e:
-            self.last_message = f"❌ Eroare autentificare: {str(e)}"
+            self.last_message = f"❌ Eroare: {str(e)}"
             return None
+
+        
 
     def start_periodic_check(self, interval=5):
         """Verifică periodic starea serverului"""

@@ -13,6 +13,7 @@ pub async fn handle_message(
         "user_data" => handle_user_data(&request),
         "status_check" => handle_status_check(&request),
         "notification" => handle_notification(&request),
+        "nimic"=>handle_nimic(&request),
         "identity_verify" => handle_identity_verification(&request),
         _ => handle_unknown_request(&request),
     };
@@ -24,7 +25,15 @@ pub async fn handle_message(
         timestamp: Utc::now().to_rfc3339(),
     })
 }
-
+fn handle_nimic(request: &MessageRequest) -> (bool, Value) {
+    (
+        true,
+        json!({
+            "nimic": "e doar de test",
+            "request": &request.content,
+        }),
+    )
+}
 // Funcții specifice pentru fiecare tip de mesaj
 fn handle_greeting(request: &MessageRequest) -> (bool, Value) {
     let user = &request.user_id;

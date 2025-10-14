@@ -25,6 +25,14 @@ class MyApp(App):
         )
         next_btn.bind(on_press=self.go_next)
         
+        login_btn = Button(
+            text='login',
+            size_hint_y=0.2,
+            font_size='18sp',
+            background_color=(0.2, 0.6, 1, 1)
+        )
+        login_btn.bind(on_press=self.go_login)
+        
         self.text_input = TextInput(
             text="",
             multiline=False, 
@@ -33,12 +41,16 @@ class MyApp(App):
 
         layout.add_widget(self.server)
         layout.add_widget(self.text_input)
+        layout.add_widget(login_btn)
         layout.add_widget(next_btn)
 
         return layout
 
     def go_next(self, instance):
-        self.server.send_specific_message("user_data",self.text_input.text)
+        self.server.send_specific_message("nimic",self.text_input.text)
+
+    def go_login(self, instance):
+        self.server.send_login("admin","admin2025")
 
     def on_message_update(self, instance, value):
         print("🟢 Eveniment (signal):", value)
