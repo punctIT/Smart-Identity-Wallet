@@ -1,4 +1,4 @@
-from frontend.app import SmartID
+from frontend.app import SmartIdApp
 
 if __name__ == "__main__":
-    SmartID().run()
+    SmartIdApp().run()
