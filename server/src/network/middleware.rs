@@ -14,7 +14,6 @@ pub async fn auth_middleware<B>(
     request: Request<B>,
     next: Next<B>,
 ) -> Result<Response, StatusCode> {
-    // Extract token din header
     let auth_header = headers.get("Authorization")
         .and_then(|header| header.to_str().ok())
         .and_then(|header| {

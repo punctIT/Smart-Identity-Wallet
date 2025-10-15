@@ -1,4 +1,4 @@
-use crate::network::common::{MessageRequest, MessageResponse};
+use crate::others::common::{MessageRequest, MessageResponse};
 use axum::{extract::Json as ExtractJson, response::Json};
 use chrono::Utc;
 use serde_json::{json, Value};

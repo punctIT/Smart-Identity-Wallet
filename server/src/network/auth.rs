@@ -18,6 +18,16 @@ pub struct LoginRequest {
     pub username: String,
     pub password: String,
 }
+#[derive(Deserialize)]
+#[allow(dead_code)]
+pub struct RegisterRequest {
+    pub username: String,
+    pub password: String,
+    pub email:String,
+    pub phone_number:String,
+}
+
+
 
 #[derive(Serialize)]
 pub struct LoginResponse {

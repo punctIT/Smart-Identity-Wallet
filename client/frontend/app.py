@@ -6,10 +6,10 @@ from kivy.properties import StringProperty
 from kivy.clock import Clock
 from kivy.uix.textinput import TextInput
 
-from server_connect import ServerConnection
+from backend.server_connect import ServerConnection
 
 
-class MyApp(App):      
+class SmartID(App):      
     def build(self):
         layout = BoxLayout(orientation='vertical', padding=10, spacing=10)
 
@@ -57,5 +57,3 @@ class MyApp(App):
         instance.text = value
 
 
-if __name__ == "__main__":
-    MyApp().run()
