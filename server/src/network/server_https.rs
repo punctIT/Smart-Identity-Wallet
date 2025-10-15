@@ -10,9 +10,10 @@ use axum_server::tls_rustls::RustlsConfig;
 use chrono::Utc;
 use serde_json::{json, Value};
 
-use crate::handle_message::request_handler::handle_message;
-use crate::network::auth::{SessionManager,LoginResponse,LoginRequest,UserInfo};
+use crate::handle_requests::request_handler::handle_message;
+use crate::network::auth::{SessionManager,LoginResponse,LoginRequest,UserInfo,RegisterRequest};
 use crate::network::middleware::auth_middleware;
+
 pub struct HTTPServer {
     session_manager: Arc<SessionManager>,
 }
@@ -88,6 +89,7 @@ impl HTTPServer {
         println!("🔐 Încercare login: {} la 2025-10-14 04:38:43", login_req.username);
 
         // Verifică credențialele punctITok
+        //aici trebuie facut cu DB
         let authenticated = match login_req.username.as_str() {
             "punctIT" => login_req.password == "securePunctIT2025", 
             "admin" => login_req.password == "admin2025",
@@ -122,9 +124,9 @@ impl HTTPServer {
         }
     }
 
-    async fn register(ExtractJson(register_req): ExtractJson<LoginRequest>) -> Json<Value> {
-        // Doar punctITok poate înregistra conturi noi
-        if register_req.username.starts_with("punctITok") {
+    async fn register(ExtractJson(register_req): ExtractJson<RegisterRequest>) -> Json<Value> {
+        //aici se face registeru 
+        if register_req.username.starts_with("ok") {
             Json(json!({
                 "success": true,
                 "message": "Cont creat cu succes pentru punctITok la 2025-10-14 04:38:43"
