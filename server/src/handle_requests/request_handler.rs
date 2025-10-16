@@ -1,31 +1,43 @@
 use crate::others::common::{MessageRequest, MessageResponse};
-use axum::{extract::Json as ExtractJson, response::Json};
+use axum::{
+    extract::{Json as ExtractJson, State},
+    response::Json,
+};
 use chrono::Utc;
 use serde_json::{json, Value};
 
-pub async fn handle_message(
-    ExtractJson(request): ExtractJson<MessageRequest>,
-) -> Json<MessageResponse> {
-    println!("📨 Request primit: {:?}", request);
+use std::sync::Arc;
 
-    let (success, data) = match request.message_type.as_str() {
-        "greeting" => handle_greeting(&request),
-        "user_data" => handle_user_data(&request),
-        "status_check" => handle_status_check(&request),
-        "notification" => handle_notification(&request),
-        "nimic"=>handle_nimic(&request),
-        "identity_verify" => handle_identity_verification(&request),
-        _ => handle_unknown_request(&request),
-    };
+use crate::network::server_https::AppState;
 
-    Json(MessageResponse {
-        success,
-        message_type: request.message_type.clone(),
-        data,
-        timestamp: Utc::now().to_rfc3339(),
-    })
+pub struct RequestHandler {}
+impl RequestHandler {
+    pub async fn handle_message(
+        State(app_state): State<Arc<AppState>>,
+        ExtractJson(request): ExtractJson<MessageRequest>,
+    ) -> Json<MessageResponse> {
+        println!("📨 Request primit: {:?}", request);
+        let (success, data) = match request.message_type.as_str() {
+            "greeting" => handle_greeting(&request),
+            "user_data" => handle_user_data(&request),
+            "status_check" => handle_status_check(&request),
+            "notification" => handle_notification(&request),
+            "nimic" => handle_nimic(&request,app_state).await,
+            "identity_verify" => handle_identity_verification(&request),
+            _ => handle_unknown_request(&request),
+        };
+
+        Json(MessageResponse {
+            success,
+            message_type: request.message_type.clone(),
+            data,
+            timestamp: Utc::now().to_rfc3339(),
+        })
+    }
 }
-fn handle_nimic(request: &MessageRequest) -> (bool, Value) {
+
+async fn handle_nimic(request: &MessageRequest,app_state:Arc<AppState>) -> (bool, Value) {
+    app_state.db.text().await.unwrap();
     (
         true,
         json!({

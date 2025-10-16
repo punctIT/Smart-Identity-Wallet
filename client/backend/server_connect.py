@@ -10,38 +10,36 @@ from datetime import datetime
 # Disable SSL warnings pentru certificatele self-signed
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-SERVER_URL = "https://127.0.0.1:8443"
-
-
 class ServerConnection(Label):
-    last_message = StringProperty("Aștept conexiuni...")
-
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.session = requests.Session()
         self.token=""
+        self.server_url="https://127.0.0.1:8443"
+        
         # Acceptă certificatele self-signed
         self.session.verify = False
-        
+    def set_server_url(self,URL)->"ServerConnection":
+        self.set_server_url=URL
+        return self
     def connect(self):
         """Test conexiunea la server"""
         try:
-            response = self.session.get(f"{SERVER_URL}/health", timeout=5)
+            response = self.session.get(f"{self.server_url}/health", timeout=5)
             if response.status_code == 200:
                 data = response.json()
-                self.last_message = f"✅ Conectat la server - {data['message']}"
                 return True
             else:
                 self.last_message = f"❌ Eroare HTTP: {response.status_code}"
-                return False
+                return None
         except Exception as e:
             self.last_message = f"❌ Eroare conexiune: {str(e)}"
-            return False
+            return None
 
     def get_data(self):
         """Primește date de la server"""
         try:
-            response = self.session.get(f"{SERVER_URL}/api/data", timeout=5)
+            response = self.session.get(f"{self.server_url}/api/data", timeout=5)
             if response.status_code == 200:
                 data = response.json()
                 message = data['data']['message']
@@ -54,7 +52,7 @@ class ServerConnection(Label):
         except Exception as e:
             self.last_message = f"❌ Eroare: {str(e)}"
             return None
-
+    
     def send_specific_message(self, message_type, content=None, parameters=None):
         """Trimite mesaj specific la server"""
         try:
@@ -66,7 +64,7 @@ class ServerConnection(Label):
             }
             
             response = self.session.post(
-                f"{SERVER_URL}/api/message", 
+                f"{self.server_url}/api/message", 
                 json=payload, 
                 timeout=5
             )
@@ -92,7 +90,7 @@ class ServerConnection(Label):
             }
             
             response = self.session.post(
-                f"{SERVER_URL}/login", 
+                f"{self.server_url}/login", 
                 json=payload, 
                 timeout=5
             )
@@ -130,7 +128,7 @@ class ServerConnection(Label):
         def check_server():
             while True:
                 try:
-                    response = self.session.get(f"{SERVER_URL}/health", timeout=2)
+                    response = self.session.get(f"{self.server_url}/health", timeout=2)
                     if response.status_code == 200:
                         data = response.json()
                         Clock.schedule_once(
@@ -144,18 +142,8 @@ class ServerConnection(Label):
                     Clock.schedule_once(
                         lambda dt: self.update_message("🔴 Conexiune pierdută")
                     )
-                
                 threading.Event().wait(interval)
-        
         threading.Thread(target=check_server, daemon=True).start()
-
-    def sent(self, text):
-        """Compatibilitate cu codul vechi - trimite text simplu"""
-        return self.send_data("mobile_user", "Kivy_App", text)
-
-    def update_message(self, msg):
-        """Actualizează mesajul afișat"""
-        self.last_message = msg
 
     def close(self):
         """Închide sesiunea"""

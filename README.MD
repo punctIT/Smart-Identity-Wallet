@@ -65,3 +65,5 @@ pub struct MessageResponse {
 - porcaia aia de scanat poza , gen deschis camera si scanat , si primit datele
 
 - meniu pentru acte , gen 
+
+- de facut un autologin , ca la CTP la abonaent cu biometrics
