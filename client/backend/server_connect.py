@@ -52,7 +52,7 @@ class ServerConnection(Label):
         except Exception as e:
             self.last_message = f"❌ Eroare: {str(e)}"
             return None
-
+    
     def send_specific_message(self, message_type, content=None, parameters=None):
         """Trimite mesaj specific la server"""
         try:

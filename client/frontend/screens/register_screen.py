@@ -15,9 +15,9 @@ from kivy.vector import Vector
 from kivy.uix.popup import Popup
 
 class RegisterScreen(Screen):
-    def __init__(self, **kwargs):
+    def __init__(self,server, **kwargs):
         super().__init__(name='register', **kwargs)
-        
+        self.server=server
         layout = BoxLayout(orientation='vertical', padding=20, spacing=20)
         
         # Titlu
@@ -56,6 +56,7 @@ class RegisterScreen(Screen):
     def go_back(self, *args):
         self.manager.current = 'login'
     def show_popup(self, title, message):
+        self.server.send_specific_message("nimic")
         # Layout pentru conținut
         content = BoxLayout(orientation='vertical', padding=10, spacing=10)
         

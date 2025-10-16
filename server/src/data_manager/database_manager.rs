@@ -33,8 +33,8 @@ impl DBManager {
             client: Arc::new(client),
         }))
     }
-    pub async fn text(&self)->Result<(), Error>{
-        self.client.execute("CREATE TABLE IF NOT EXISTS person (id SERIAL PRIMARY KEY, name TEXT)", &[]).await?;
+    pub async fn text(&self) -> Result<(), Error> {
+        self.client.execute("INSERT INTO test values('test rust')", &[]).await?;
         Ok(())
     }
 }

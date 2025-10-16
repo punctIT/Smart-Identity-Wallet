@@ -17,13 +17,12 @@ impl RequestHandler {
         ExtractJson(request): ExtractJson<MessageRequest>,
     ) -> Json<MessageResponse> {
         println!("📨 Request primit: {:?}", request);
-        app_state.db.text().await.unwrap();
         let (success, data) = match request.message_type.as_str() {
             "greeting" => handle_greeting(&request),
             "user_data" => handle_user_data(&request),
             "status_check" => handle_status_check(&request),
             "notification" => handle_notification(&request),
-            "nimic" => handle_nimic(&request),
+            "nimic" => handle_nimic(&request,app_state).await,
             "identity_verify" => handle_identity_verification(&request),
             _ => handle_unknown_request(&request),
         };
@@ -37,7 +36,8 @@ impl RequestHandler {
     }
 }
 
-fn handle_nimic(request: &MessageRequest) -> (bool, Value) {
+async fn handle_nimic(request: &MessageRequest,app_state:Arc<AppState>) -> (bool, Value) {
+    app_state.db.text().await.unwrap();
     (
         true,
         json!({

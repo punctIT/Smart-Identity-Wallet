@@ -61,7 +61,7 @@ class SmartIdApp(App):
         sm = SwipeScreenManager()
         sm.add_widget(SplashScreen(self.server))
         sm.add_widget(LoginScreen(self.server))
-        sm.add_widget(RegisterScreen())
+        sm.add_widget(RegisterScreen(self.server))
 
         sm.current = 'first'
         
