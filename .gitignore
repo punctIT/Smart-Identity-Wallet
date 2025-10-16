@@ -1,11 +1,10 @@
-# Ignoră toate directoarele target din subfoldere
+
 **/target/
 
-# Ignoră toate fișierele Cargo.lock doar dacă sunt librării
-# Dacă TOATE sunt executabile, poți șterge linia de mai jos
+
 **/Cargo.lock
 
-# Fișiere temporare sau specifice IDE-urilor
+
 **/*.rs.bk
 **/*.swp
 **/*.swo
@@ -16,3 +15,4 @@
 __pycache__/
 certs/
 venv/
+.env

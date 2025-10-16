@@ -1,7 +1,7 @@
+use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use chrono::{DateTime, Utc, Duration};
 use uuid::Uuid;
 
 #[derive(Clone)]
@@ -23,11 +23,9 @@ pub struct LoginRequest {
 pub struct RegisterRequest {
     pub username: String,
     pub password: String,
-    pub email:String,
-    pub phone_number:String,
+    pub email: String,
+    pub phone_number: String,
 }
-
-
 
 #[derive(Serialize)]
 pub struct LoginResponse {
@@ -59,11 +57,12 @@ impl SessionManager {
     }
 
     pub fn create_session(&self, user_id: &str) -> String {
-        let token = format!("punctITok_{}_{}", 
+        let token = format!(
+            "punctITok_{}_{}",
             &Uuid::new_v4().to_string().replace("-", "")[..16],
             Utc::now().timestamp()
         );
-        
+
         let session = UserSession {
             user_id: user_id.to_string(),
             token: token.clone(),
@@ -73,18 +72,21 @@ impl SessionManager {
 
         let mut sessions = self.sessions.lock().unwrap();
         sessions.insert(token.clone(), session);
-        
-        println!("✅ Sesiune creată pentru punctITok la 2025-10-14 04:38:43: {}", token);
+
+        println!(
+            "✅ Sesiune creată pentru punctITok la 2025-10-14 04:38:43: {}",
+            token
+        );
         token
     }
 
     pub fn validate_token(&self, token: &str) -> Option<UserSession> {
         let mut sessions = self.sessions.lock().unwrap();
-        
+
         if let Some(session) = sessions.get(token) {
             if session.expires_at > Utc::now() {
                 println!("✅ Token valid pentru punctITok la 2025-10-14 04:38:43");
-                let session = (*session).clone(); 
+                let session = (*session).clone();
                 return Some(session);
             } else {
                 println!("❌ Token expirat pentru punctITok la 2025-10-14 04:38:43");
