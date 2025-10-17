@@ -1,3 +1,8 @@
+from kivy.config import Config
+
+Config.set('graphics', 'width', '675')
+Config.set('graphics', 'height', '1200')
+
 from kivy.app import App
 from kivy.uix.label import Label
 from kivy.uix.button import Button
@@ -76,10 +81,14 @@ class SmartIdApp(App):
             if self.root.current == 'first':
                 self.root.transition.direction = 'up'
                 self.root.current = 'second'
+            return True
         elif key == 276:  # Săgeată stânga
             if self.root.current == 'second':
                 self.root.transition.direction = 'down'
                 self.root.current = 'first'
-        return True
+            return True
+
+        # Return False to allow other widgets (e.g., TextInput) to handle keys like backspace
+        return False
 
   
