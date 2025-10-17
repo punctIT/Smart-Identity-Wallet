@@ -121,7 +121,34 @@ class ServerConnection(Label):
             self.last_message = f"❌ Eroare: {str(e)}"
             return None
 
-        
+    def send_register_request(self, username,password,email,phone_number, content=None, parameters=None):
+        """Trimite mesaj specific la server"""
+        try:
+            payload = {
+                "username":username,
+                "password":password, 
+                "email":email,
+                "phone_number": phone_number
+            }
+            
+            response = self.session.post(
+                f"{self.server_url}/register", 
+                json=payload, 
+                timeout=5
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.last_message = f"✅ {data['success']}"
+                
+                return data
+            else:
+                self.last_message = f"❌ Eroare: {response.status_code}"
+                return None
+                
+        except Exception as e:
+            self.last_message = f"❌ Eroare: {str(e)}"
+            return None
 
     def start_periodic_check(self, interval=5):
         """Verifică periodic starea serverului"""
