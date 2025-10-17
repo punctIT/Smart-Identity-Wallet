@@ -32,7 +32,7 @@ class LoginScreen(Screen):
         )
         self.password_input = TextInput(
             hint_text='Enter password',
-            password=True,        # 🔒 ascunde textul
+            password=True, 
             multiline=False
         )
         register_btn = Button(

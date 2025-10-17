@@ -10,8 +10,8 @@ use std::sync::Arc;
 
 use crate::network::server_https::AppState;
 
-pub struct RequestHandler {}
-impl RequestHandler {
+pub struct DataRequestHandler {}
+impl DataRequestHandler {
     pub async fn handle_message(
         State(app_state): State<Arc<AppState>>,
         ExtractJson(request): ExtractJson<MessageRequest>,
@@ -22,7 +22,7 @@ impl RequestHandler {
             "user_data" => handle_user_data(&request),
             "status_check" => handle_status_check(&request),
             "notification" => handle_notification(&request),
-            "nimic" => handle_nimic(&request,app_state).await,
+            "nimic" => handle_nimic(&request, app_state).await,
             "identity_verify" => handle_identity_verification(&request),
             _ => handle_unknown_request(&request),
         };
@@ -36,12 +36,20 @@ impl RequestHandler {
     }
 }
 
-async fn handle_nimic(request: &MessageRequest,app_state:Arc<AppState>) -> (bool, Value) {
-    app_state.db.text().await.unwrap();
+async fn handle_nimic(request: &MessageRequest, app_state: Arc<AppState>) -> (bool, Value) {
+    let data = app_state
+        .db
+        .select(
+            "select * from test where text='rust';".to_string(),
+            "text".to_string(),
+        )
+        .await
+        .unwrap_or(String::from("error"));
+    dbg!(&data);
     (
         true,
         json!({
-            "nimic": "e doar de test",
+            "nimic": &data,
             "request": &request.content,
         }),
     )
