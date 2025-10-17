@@ -1,4 +1,4 @@
-use crate::network::auth::{LoginRequest,LoginResponse,UserInfo,RegisterRequest};
+use crate::network::auth::{LoginRequest, LoginResponse, RegisterRequest, UserInfo};
 use axum::{
     extract::{Json as ExtractJson, State},
     response::Json,
@@ -9,8 +9,8 @@ use std::sync::Arc;
 
 use crate::network::server_https::AppState;
 
-pub struct AuthRequestHandler{}
-impl AuthRequestHandler{
+pub struct AuthRequestHandler {}
+impl AuthRequestHandler {
     pub async fn handle_login(
         State(app_state): State<Arc<AppState>>,
         ExtractJson(login_req): ExtractJson<LoginRequest>,
@@ -67,18 +67,61 @@ impl AuthRequestHandler{
         }
     }
 
-    pub async fn handle_register(ExtractJson(register_req): ExtractJson<RegisterRequest>) -> Json<Value> {
-        //aici se face registeru
-        if register_req.username.starts_with("ok") {
-            Json(json!({
-                "success": true,
-                "message": "Cont creat cu succes pentru punctITok la 2025-10-14 04:38:43"
-            }))
-        } else {
-            Json(json!({
-                "success": false,
-                "message": "❌ Doar punctITok poate crea conturi noi"
-            }))
+    pub async fn handle_register(
+        State(app_state): State<Arc<AppState>>,
+        ExtractJson(register_req): ExtractJson<RegisterRequest>,
+    ) -> Json<Value> {
+        println!(
+            "🔐 Încercare register: {} la 2025-10-14 04:38:43",
+            register_req.email
+        );
+        let check_email = match app_state.db.check_email(&register_req.email).await {
+            Ok(result) => result,
+            Err(_) => {
+                return Json(json!({
+                    "success": false,
+                    "message": "Error Database"
+                }));
+            }
+        };
+        if check_email {
+            return Json(json!({
+                    "success": false,
+                    "message": "Existent email"
+            }));
         }
+        if let Err(e) = app_state
+            .db
+            .execute(
+                format!(
+                    "
+                INSERT INTO users (email, username, password_hash, phone_number, created_at, updated_at)
+                VALUES (
+                    '{}',
+                    '{}',
+                    '{}', 
+                    '{}',
+                    now(),
+                    now()
+                );",
+                register_req.email,
+                register_req.username,
+                register_req.password,
+                register_req.phone_number
+                )
+                .to_string(),
+            )
+            .await
+        {
+            println!("error insert db");
+            return Json(json!({
+                "success": false,
+                "message": format!("eroare la insert in db {}",e),
+            }));
+        }
+        Json(json!({
+            "success": true,
+            "message": "register succesful"
+        }))
     }
 }

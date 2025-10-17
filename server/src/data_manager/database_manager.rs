@@ -34,13 +34,25 @@ impl DBManager {
             client: Arc::new(client),
         }))
     }
+    pub async fn check_email(&self, email: &String) -> Result<bool, Error> {
+        let exists: bool = self
+            .client
+            .query_one(
+                "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)",
+                &[&email],
+            )
+            .await?
+            .get(0);
+        Ok(exists)
+    }
     pub async fn configure_database(&self) -> Result<(), Error> {
         self.execute(String::from(
             "
             CREATE TABLE IF NOT EXISTS users (
             email TEXT PRIMARY KEY,            
             username TEXT NOT NULL,            
-            password_hash TEXT NOT NULL,        
+            password_hash TEXT NOT NULL,  
+            phone_number TEXT,          
             created_at TIMESTAMPTZ DEFAULT now(), 
             updated_at TIMESTAMPTZ DEFAULT now() 
         );
