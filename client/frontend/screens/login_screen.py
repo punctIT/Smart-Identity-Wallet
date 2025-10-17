@@ -65,7 +65,14 @@ class LoginScreen(Screen):
     # def go_next(self, instance):
     #     self.server.send_specific_message("nimic",self.text_input.text)
     def go_login(self, instance):
-        if self.server.send_login("admin","admin2025") != None:
+        username = self.username_input.text.strip()
+        password = self.password_input.text
+
+        if not username or not password:
+            print("Completează utilizatorul și parola.")
+            return
+
+        if self.server.send_login(username, password) is not None:
             self.go_next()
         else:
             print("nu e connectat")
