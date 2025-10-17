@@ -12,8 +12,9 @@ impl DBManager {
     pub async fn new() -> Result<Arc<Self>, Error> {
         dotenv::dotenv().ok();
         let db_name = env::var("DB_NAME").expect("DB_NAME must be set");
-        let db_password = env::var("DB_PASSWORD").expect("DB_NAME must be set");
-        let db_user = env::var("DB_USER").expect("DB_NAME must be set");
+        let db_password = env::var("DB_PASSWORD").expect("db_password must be set");
+        let db_user = env::var("DB_USER").expect("DB_user must be set");
+
         let (client, connection) = tokio_postgres::connect(
             format!(
                 "host=localhost user={} password={} dbname={}",
@@ -33,8 +34,27 @@ impl DBManager {
             client: Arc::new(client),
         }))
     }
-    pub async fn text(&self) -> Result<(), Error> {
-        self.client.execute("INSERT INTO test values('test rust')", &[]).await?;
+    pub async fn configure_database(&self) -> Result<(), Error> {
+        self.execute(String::from(
+            "
+            CREATE TABLE IF NOT EXISTS users (
+            email TEXT PRIMARY KEY,            
+            username TEXT NOT NULL,            
+            password_hash TEXT NOT NULL,        
+            created_at TIMESTAMPTZ DEFAULT now(), 
+            updated_at TIMESTAMPTZ DEFAULT now() 
+        );
+        ",
+        ))
+        .await?;
         Ok(())
+    }
+    pub async fn execute(&self, query: String) -> Result<(), Error> {
+        self.client.execute(query.as_str(), &[]).await?;
+        Ok(())
+    }
+    pub async fn select(&self, query: String, value: String) -> Result<String, Error> {
+        let row = self.client.query_one(query.as_str(), &[]).await?;
+        Ok(row.get(value.as_str()))
     }
 }

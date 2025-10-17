@@ -29,13 +29,13 @@ class RegisterScreen(Screen):
         )
         
         # Conținut
-        content = Label(
+        self.content = Label(
             text='Aceasta este a doua fereastră.\n\nSwipe stânga sau apasă butonul\npentru a te întoarce.',
             font_size='16sp',
             halign='center',
             text_size=(None, None)
         )
-        content.bind(size=content.setter('text_size'))
+        self.content.bind(size=self.content.setter('text_size'))
         
         # Buton navigare
         prev_btn = Button(
@@ -48,7 +48,7 @@ class RegisterScreen(Screen):
         btn = Button(text="Arată popup")
         btn.bind(on_press=lambda x: self.show_popup("Atenție", "Acesta este un mesaj!"))
         layout.add_widget(title)
-        layout.add_widget(content)
+        layout.add_widget(self.content)
         layout.add_widget(prev_btn)
         layout.add_widget(btn)
         self.add_widget(layout)
@@ -56,7 +56,13 @@ class RegisterScreen(Screen):
     def go_back(self, *args):
         self.manager.current = 'login'
     def show_popup(self, title, message):
-        self.server.send_specific_message("nimic")
+        data = self.server.send_specific_message("nimic")
+        if data is not None:
+            print(data)
+            self.content.text = str(data.get('data', ''))
+        else:
+            self.content.text = "Eroare la server"
+       
         # Layout pentru conținut
         content = BoxLayout(orientation='vertical', padding=10, spacing=10)
         
