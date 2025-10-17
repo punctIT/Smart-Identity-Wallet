@@ -44,7 +44,6 @@ pub struct UserInfo {
     pub login_time: String,
 }
 
-// Session manager pentru punctITok
 pub struct SessionManager {
     sessions: Arc<Mutex<HashMap<String, UserSession>>>,
 }
@@ -58,7 +57,8 @@ impl SessionManager {
 
     pub fn create_session(&self, user_id: &str) -> String {
         let token = format!(
-            "punctITok_{}_{}",
+            "{}_{}_{}",
+            user_id,
             &Uuid::new_v4().to_string().replace("-", "")[..16],
             Utc::now().timestamp()
         );
@@ -66,7 +66,7 @@ impl SessionManager {
         let session = UserSession {
             user_id: user_id.to_string(),
             token: token.clone(),
-            expires_at: Utc::now() + Duration::hours(24), // 24h pentru punctITok
+            expires_at: Utc::now() + Duration::hours(24),
             created_at: Utc::now(),
         };
 
@@ -74,8 +74,8 @@ impl SessionManager {
         sessions.insert(token.clone(), session);
 
         println!(
-            "✅ Sesiune creată pentru punctITok la 2025-10-14 04:38:43: {}",
-            token
+            "✅ Sesiune creată pentru {} la 2025-10-14 04:38:43: {}",
+            user_id, token
         );
         token
     }

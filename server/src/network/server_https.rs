@@ -12,9 +12,8 @@ use std::sync::Arc;
 use crate::data_manager::database_manager::DBManager;
 use crate::network::middleware::auth_middleware;
 use crate::{
-    handle_requests::data_requests::DataRequestHandler,
     handle_requests::auth_requests::AuthRequestHandler,
-    network::auth:: {SessionManager},
+    handle_requests::data_requests::DataRequestHandler, network::auth::SessionManager,
 };
 
 pub struct HTTPServer {
@@ -67,7 +66,10 @@ impl HTTPServer {
         let app = Router::new().merge(public_routes).merge(protected_routes);
 
         let tls_config =
-            RustlsConfig::from_pem_file("certs/server.crt", "certs/server.key").await?;
+            match RustlsConfig::from_pem_file("certs/server.crt", "certs/server.key").await {
+                Ok(config) => config,
+                Err(e) => panic!("error, certs {}", e),
+            };
 
         let addr = "0.0.0.0:8443".parse()?;
         println!("🚀 Starting HTTPS server on https://{}", addr);
@@ -102,5 +104,5 @@ impl HTTPServer {
                 "secure": true
             }
         }))
-    }    
+    }
 }
