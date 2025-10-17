@@ -30,9 +30,8 @@ def make_rounded_button(text, color, on_press_callback):
     btn = Button(
         text=text,
         font_size='16sp',
-        size_hint=(0.65, None),
+        size_hint=(None, None),   # <-- no horizontal stretching; we'll set width via wrapper
         height=46,
-        pos_hint={'center_x': 0.5},
         background_color=(0, 0, 0, 0),
         background_normal='',
         color=(1, 1, 1, 1)
@@ -45,7 +44,6 @@ def make_rounded_button(text, color, on_press_callback):
         btn.bg.pos = btn.pos
         btn.bg.size = btn.size
 
-    # subtle press darken effect
     def on_state(_btn, state):
         if state == 'down':
             btn._bg_color.rgba = (color[0]*0.85, color[1]*0.85, color[2]*0.85, color[3])
@@ -56,6 +54,55 @@ def make_rounded_button(text, color, on_press_callback):
     btn.bind(on_press=on_press_callback)
     btn.bind(state=on_state)
     return btn
+
+# --- rounded TextInput wrapper with focus outline ---
+def make_rounded_input(hint_text, *, password=False):
+    wrapper = AnchorLayout(size_hint=(None, None), height=46, anchor_x='center', anchor_y='center')
+
+    with wrapper.canvas.before:
+        wrapper._fill = Color(*INPUT_BG)
+        wrapper._bg = RoundedRectangle(radius=[12, 12, 12, 12])
+        wrapper._outline_color = Color(1, 1, 1, 0.08)
+        wrapper._outline = RoundedRectangle(radius=[12, 12, 12, 12])
+
+    def sync_bg(*_):
+        wrapper._bg.pos = wrapper.pos
+        wrapper._bg.size = wrapper.size
+        wrapper._outline.pos = (wrapper.x - 0.5, wrapper.y - 0.5)
+        wrapper._outline.size = (wrapper.width + 1, wrapper.height + 1)
+    wrapper.bind(pos=sync_bg, size=sync_bg)
+
+    ti = TextInput(
+        hint_text=hint_text,
+        password=password,
+        multiline=False,
+        size_hint=(1, 1),
+        padding=(12, 12),
+        background_color=(0, 0, 0, 0),
+        foreground_color=INPUT_TEXT,
+        cursor_color=ACCENT,
+        hint_text_color=INPUT_HINT,
+        write_tab=False
+    )
+    wrapper.add_widget(ti)
+
+    def on_focus(_inst, focus):
+        wrapper._outline_color.rgba = (ACCENT[0], ACCENT[1], ACCENT[2], 0.75) if focus else (1, 1, 1, 0.08)
+    ti.bind(focus=on_focus)
+
+    return wrapper, ti
+
+# --- NEW: center a child at a relative width of its parent ---
+def center_row(child, *, rel_width=0.85, height=None):
+    row = AnchorLayout(anchor_x='center', anchor_y='center', size_hint=(1, None),
+                       height=height if height is not None else child.height)
+    # make child fixed-width inside the row; width tracks a fraction of row width
+    child.size_hint_x = None
+    def _bind_width(_row, _val):
+        child.width = row.width * rel_width
+    row.bind(width=_bind_width)
+    row.add_widget(child)
+    return row
 
 class GradientBackground(BoxLayout):
     def __init__(self, color_top=BG_TOP, color_bottom=BG_BOTTOM, **kwargs):
@@ -96,7 +143,6 @@ class LinkLabel(ButtonBehavior, Label):
         self.bind(on_press=self.on_press_effect, on_release=self.on_release_effect)
 
     def on_press_effect(self, *_):
-        # Slight darken effect on hex colors used below
         darker = (self.original_text
                   .replace("#9FB4D9", "#7C97C8")
                   .replace("#3F86FF", "#2E66CC"))
@@ -135,7 +181,7 @@ class LoginScreen(Screen):
 
         card = BoxLayout(
             orientation='vertical',
-            spacing=14,
+            spacing=10,                 # a bit tighter so errors fit nicely
             padding=[22, 22, 22, 22],
             size_hint=(0.9, None)
         )
@@ -151,10 +197,8 @@ class LoginScreen(Screen):
         def _sync_bg(*_):
             self.card_bg.pos = card.pos
             self.card_bg.size = card.size
-            # slight halo border
             self.card_border.pos = (card.x - 0.5, card.y - 0.5)
             self.card_border.size = (card.width + 1, card.height + 1)
-
         card.bind(pos=_sync_bg, size=_sync_bg)
 
         subtitle = Label(
@@ -166,24 +210,34 @@ class LoginScreen(Screen):
             color=TEXT_PRIMARY
         )
 
-        self.username_input = TextInput(
-            hint_text='Enter username', multiline=False,
-            size_hint=(0.85, None), height=42,
-            pos_hint={'center_x': 0.5}, padding=(10, 10),
-            background_color=INPUT_BG,
-            foreground_color=INPUT_TEXT,
-            cursor_color=ACCENT,
-            hint_text_color=INPUT_HINT
-        )
-        self.password_input = TextInput(
-            hint_text='Enter password', password=True, multiline=False,
-            size_hint=(0.85, None), height=42,
-            pos_hint={'center_x': 0.5}, padding=(10, 10),
-            background_color=INPUT_BG,
-            foreground_color=INPUT_TEXT,
-            cursor_color=ACCENT,
-            hint_text_color=INPUT_HINT
-        )
+        # ---- helpers for error labels
+        def make_error_label():
+            lbl = Label(text='',
+                        color=(1, 0.35, 0.4, 1),      # soft red
+                        size_hint=(1, None),
+                        height=0,                     # hidden by default
+                        font_size='13sp',
+                        halign='left',
+                        valign='middle')
+            lbl.bind(size=lambda l, s: setattr(l, 'text_size', (s[0], None)))
+            return lbl
+
+        def set_error(lbl, message: str):
+            if message:
+                lbl.text = message
+                lbl.texture_update()
+                lbl.height = max(18, lbl.texture_size[1] + 2)
+            else:
+                lbl.text = ''
+                lbl.height = 0
+
+        # Rounded inputs
+        self.username_box, self.username_input = make_rounded_input('Enter username')
+        self.password_box, self.password_input = make_rounded_input('Enter password', password=True)
+
+        # Error labels (one per field)
+        self.err_user = make_error_label()
+        self.err_pass = make_error_label()
 
         login_btn = make_rounded_button("Login", ACCENT_SOFT, self.go_login)
 
@@ -203,15 +257,20 @@ class LoginScreen(Screen):
         )
         info_label.bind(on_press=lambda *_: self.go_next())
 
-        for w in (
-            subtitle,
-            self.username_input,
-            self.password_input,
-            login_btn,
-            Widget(size_hint_y=None, height=25),
-            info_label
-        ):
-            card.add_widget(w)
+        # ---------- centered rows inside the card ----------
+        card.add_widget(subtitle)
+
+        # username (error above field)
+        card.add_widget(center_row(self.err_user,     rel_width=0.85, height=self.err_user.height))
+        card.add_widget(center_row(self.username_box, rel_width=0.85, height=46))
+
+        # password (error above field)
+        card.add_widget(center_row(self.err_pass,     rel_width=0.85, height=self.err_pass.height))
+        card.add_widget(center_row(self.password_box, rel_width=0.85, height=46))
+
+        card.add_widget(center_row(login_btn, rel_width=0.65, height=46))
+        card.add_widget(Widget(size_hint_y=None, height=25))
+        card.add_widget(info_label)
 
         outer.add_widget(card)
 
@@ -219,9 +278,11 @@ class LoginScreen(Screen):
         def update_layout(*_):
             top_anchor.padding = [0, int(Window.height * 0.08), 0, 0]
             outer.padding = [0, 0, 0, int(Window.height * 0.01)]
-
         update_layout()
         Window.bind(size=lambda *_: update_layout())
+
+        # expose error setter
+        self._set_error = set_error
 
     def set_server(self, server):
         self.server = server
@@ -232,11 +293,25 @@ class LoginScreen(Screen):
 
     def go_login(self, *_):
         username = self.username_input.text.strip()
-        password = self.password_input.text
-        if not username or not password:
-            print("Completează utilizatorul și parola.")
+        password = self.password_input.text.strip()
+
+        # clear previous errors
+        self._set_error(self.err_user, '')
+        self._set_error(self.err_pass, '')
+
+        has_error = False
+        if not username:
+            self._set_error(self.err_user, "Username is required.")
+            has_error = True
+        if not password:
+            self._set_error(self.err_pass, "Password is required.")
+            has_error = True
+
+        if has_error:
             return
+
         if self.server and self.server.send_login(username, password) is not None:
             self.go_next()
         else:
-            print("nu e conectat")
+            # show a general error above username if connection fails
+            self._set_error(self.err_user, "Could not connect to server. Please try again.")
