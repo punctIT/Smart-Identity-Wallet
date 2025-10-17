@@ -79,16 +79,33 @@ impl DBManager {
         self.execute(String::from(
             "
             CREATE TABLE IF NOT EXISTS users (
-            email TEXT PRIMARY KEY,            
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            email VARCHAR(100) UNIQUE NOT NULL,
             username TEXT NOT NULL,            
             password_hash TEXT NOT NULL,  
             phone_number TEXT,          
             created_at TIMESTAMPTZ DEFAULT now(), 
             updated_at TIMESTAMPTZ DEFAULT now() 
-        );
-        ",
+        );",
         ))
         .await?;
+        self.execute(
+            "
+         CREATE TABLE IF NOT EXISTS identity_wallet (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            identity_card JSONB NOT NULL,
+            CONSTRAINT unique_user_identity UNIQUE(user_id)
+        );"
+            .to_string(),
+        )
+        .await?;
+        self.execute(
+            "CREATE INDEX IF NOT EXISTS idx_identity_wallet_user_id ON identity_wallet(user_id);"
+                .to_string(),
+        )
+        .await?;
+
         Ok(())
     }
     pub async fn execute(&self, query: String) -> Result<(), Error> {

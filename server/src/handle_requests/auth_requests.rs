@@ -7,8 +7,8 @@ use serde_json::{json, Value};
 
 use std::sync::Arc;
 
-use crate::network::server_https::AppState;
 use crate::data_manager::password_hashing::PasswordHashManager;
+use crate::network::server_https::AppState;
 pub struct AuthRequestHandler {}
 impl AuthRequestHandler {
     pub async fn handle_login(
@@ -81,30 +81,29 @@ impl AuthRequestHandler {
         if check_email {
             return Json(json!({
                     "success": false,
-                    "message": "Existent email"
+                    "message": "mail already used"
             }));
         }
         let Ok(hash_pass) = PasswordHashManager::get_hashed(register_req.password.clone()) else {
-             return Json(json!({
+            return Json(json!({
                     "success": false,
                     "message": "hashing error"
             }));
         };
-        dbg!(&hash_pass);
+
         if let Err(e) = app_state
             .db
             .execute(
-                format!(
-                    "
-                INSERT INTO users (email, username, password_hash, phone_number, created_at, updated_at)
-                VALUES (
-                    '{}',
-                    '{}',
-                    '{}', 
-                    '{}',
-                    now(),
-                    now()
-                );",
+                format!("
+                    INSERT INTO users (email, username, password_hash, phone_number, created_at, updated_at)
+                    VALUES (
+                        '{}',
+                        '{}',
+                        '{}', 
+                        '{}',
+                        now(),
+                        now()
+                    );",
                 register_req.email,
                 register_req.username,
                 hash_pass,
@@ -120,10 +119,7 @@ impl AuthRequestHandler {
                 "message": format!("eroare la insert in db {}",e),
             }));
         }
-        println!(
-            "🔐 register succesful: {} la 2025-10-14 04:38:43",
-            register_req.email
-        );
+        println!("🔐 register: {} la 2025-10-14 04:38:43", register_req.email);
         Json(json!({
             "success": true,
             "message": "register succesful"
