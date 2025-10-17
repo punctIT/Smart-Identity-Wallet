@@ -1,6 +1,10 @@
 use std::env;
 use std::sync::Arc;
+
 use tokio_postgres::{Client, Error, NoTls};
+
+use crate::data_manager::password_hashing::PasswordHashManager;
+use crate::network::auth::LoginRequest;
 
 #[derive(Clone)]
 pub struct DBManager {
@@ -44,6 +48,32 @@ impl DBManager {
             .await?
             .get(0);
         Ok(exists)
+    }
+    pub async fn check_login_credentials(
+        &self,
+        login_request: &LoginRequest,
+    ) -> Result<bool, Error> {
+        let exists_username: bool = self
+            .client
+            .query_one(
+                "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1 OR  username = $1 OR phone_number = $1)",
+                &[&login_request.username],
+            )
+            .await?
+            .get(0);
+        if !exists_username {
+            return Ok(false);
+        }
+        let password_hash: String = self
+            .client
+            .query_one(
+                "SELECT password_hash FROM users WHERE email = $1 OR  username = $1 OR phone_number = $1",
+                &[&login_request.username],
+            )
+            .await?
+            .get(0);
+        let p_hash = PasswordHashManager::new(login_request.password.clone(), password_hash);
+        Ok(exists_username && p_hash.check().unwrap_or(false))
     }
     pub async fn configure_database(&self) -> Result<(), Error> {
         self.execute(String::from(

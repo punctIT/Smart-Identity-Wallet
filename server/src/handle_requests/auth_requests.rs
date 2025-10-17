@@ -8,7 +8,7 @@ use serde_json::{json, Value};
 use std::sync::Arc;
 
 use crate::network::server_https::AppState;
-
+use crate::data_manager::password_hashing::PasswordHashManager;
 pub struct AuthRequestHandler {}
 impl AuthRequestHandler {
     pub async fn handle_login(
@@ -19,14 +19,11 @@ impl AuthRequestHandler {
             "🔐 Încercare login: {} la 2025-10-14 04:38:43",
             login_req.username
         );
-
-        // Verifică credențialele punctITok
-        //aici trebuie facut cu DB
-        let authenticated = match login_req.username.as_str() {
-            "punctIT" => login_req.password == "securePunctIT2025",
-            "admin" => login_req.password == "admin2025",
-            _ => false,
-        };
+        let authenticated = app_state
+            .db
+            .check_login_credentials(&login_req)
+            .await
+            .unwrap_or(false);
 
         if authenticated {
             let token = app_state
@@ -34,11 +31,7 @@ impl AuthRequestHandler {
                 .create_session(&login_req.username);
             let user_info = UserInfo {
                 username: login_req.username.clone(),
-                role: if login_req.username == "punctITok" {
-                    "Lead Developer".to_string()
-                } else {
-                    "Admin".to_string()
-                },
+                role: "user".to_string(),
                 permissions: vec!["read".to_string(), "write".to_string(), "admin".to_string()],
                 login_time: "2025-10-14 04:38:43".to_string(),
             };
@@ -48,8 +41,9 @@ impl AuthRequestHandler {
                 token: Some(token),
                 expires_in: 24 * 3600, // 24 ore
                 user_info: Some(user_info),
-                message: String::from(
-                    "🎉 Bun venit punctITok! Login reușit la 2025-10-14 04:38:43",
+                message: format!(
+                    "Bun venit {} Login reușit la 2025-10-14 04:38:43",
+                    login_req.username
                 ),
             })
         } else {
@@ -90,6 +84,13 @@ impl AuthRequestHandler {
                     "message": "Existent email"
             }));
         }
+        let Ok(hash_pass) = PasswordHashManager::get_hashed(register_req.password.clone()) else {
+             return Json(json!({
+                    "success": false,
+                    "message": "hashing error"
+            }));
+        };
+        dbg!(&hash_pass);
         if let Err(e) = app_state
             .db
             .execute(
@@ -106,7 +107,7 @@ impl AuthRequestHandler {
                 );",
                 register_req.email,
                 register_req.username,
-                register_req.password,
+                hash_pass,
                 register_req.phone_number
                 )
                 .to_string(),
@@ -119,6 +120,10 @@ impl AuthRequestHandler {
                 "message": format!("eroare la insert in db {}",e),
             }));
         }
+        println!(
+            "🔐 register succesful: {} la 2025-10-14 04:38:43",
+            register_req.email
+        );
         Json(json!({
             "success": true,
             "message": "register succesful"
