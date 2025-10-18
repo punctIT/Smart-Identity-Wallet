@@ -94,7 +94,7 @@ impl DBManager {
          CREATE TABLE IF NOT EXISTS identity_wallet (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-            identity_card JSONB NOT NULL,
+            identity_card TEXT,
             CONSTRAINT unique_user_identity UNIQUE(user_id)
         );"
             .to_string(),
