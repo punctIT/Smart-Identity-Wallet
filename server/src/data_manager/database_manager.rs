@@ -112,8 +112,8 @@ impl DBManager {
         self.client.execute(query.as_str(), &[]).await?;
         Ok(())
     }
-    pub async fn select(&self, query: String, value: String) -> Result<String, Error> {
+    pub async fn select(&self, query: String, value: &'static str) -> Result<String, Error> {
         let row = self.client.query_one(query.as_str(), &[]).await?;
-        Ok(row.get(value.as_str()))
+        Ok(row.get(value))
     }
 }

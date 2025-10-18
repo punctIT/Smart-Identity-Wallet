@@ -30,7 +30,7 @@ impl AuthRequestHandler {
                 .session_manager
                 .create_session(&login_req.username);
             let user_info = UserInfo {
-                username: login_req.username.clone(),
+                username: login_req.username.clone(), //trebuie modificat cu username din db
                 role: "user".to_string(),
                 permissions: vec!["read".to_string(), "write".to_string(), "admin".to_string()],
                 login_time: "2025-10-14 04:38:43".to_string(),
