@@ -5,7 +5,7 @@ use serde_json::Value;
 pub struct MessageRequest {
     pub message_type: String,
     pub user_id: String,
-    pub content: Option<String>,
+    pub content: Option<Value>,
 }
 
 #[derive(Serialize)]
