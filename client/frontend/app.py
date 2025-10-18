@@ -22,6 +22,7 @@ from backend.server_connect import ServerConnection
 from frontend.screens.login_screen import LoginScreen
 from frontend.screens.register_screen import RegisterScreen
 from frontend.screens.splash_screen import SplashScreen
+from frontend.screens.home import HomeScreen
 
 class SwipeScreenManager(ScreenManager):
     def __init__(self, **kwargs):
@@ -43,13 +44,13 @@ class SwipeScreenManager(ScreenManager):
             
             # Verifică dacă e swipe horizontal suficient de lung
             if abs(swipe_vector.y) > self.min_swipe_distance and abs(swipe_vector.y) > abs(swipe_vector.x):
-                if swipe_vector.y > 0:  # Swipe dreapta
+                if swipe_vector.y > 0:  # swipe up
                     if self.current == 'first':
                         self.transition.direction = 'up'
-                        self.current = 'second'
+                        self.current = 'login'
                         return True
-                else:  # Swipe stânga
-                    if self.current == 'second':
+                else:  # swipe down
+                    if self.current == 'login':
                         self.transition.direction = 'down'
                         self.current = 'first'
                         return True
@@ -67,6 +68,7 @@ class SmartIdApp(App):
         sm.add_widget(SplashScreen(self.server))
         sm.add_widget(LoginScreen(self.server))
         sm.add_widget(RegisterScreen(self.server))
+        sm.add_widget(HomeScreen(self.server))
 
         sm.current = 'first'
         
@@ -80,10 +82,10 @@ class SmartIdApp(App):
         if key == 275:  # Săgeată dreapta
             if self.root.current == 'first':
                 self.root.transition.direction = 'up'
-                self.root.current = 'second'
+                self.root.current = 'login'
             return True
         elif key == 276:  # Săgeată stânga
-            if self.root.current == 'second':
+            if self.root.current == 'login':
                 self.root.transition.direction = 'down'
                 self.root.current = 'first'
             return True
