@@ -10,6 +10,7 @@ use serde_json::{json, Value};
 use std::sync::Arc;
 
 use crate::data_manager::database_manager::DBManager;
+use crate::handle_requests::cripto_manager::CryptoManager;
 use crate::network::middleware::auth_middleware;
 use crate::{
     handle_requests::auth_requests::AuthRequestHandler,
@@ -24,12 +25,18 @@ pub struct HTTPServer {
 pub struct AppState {
     pub db: Arc<DBManager>,
     pub session_manager: Arc<SessionManager>,
+    pub cripto_manager: Arc<CryptoManager>,
 }
 impl AppState {
-    fn new(db: Arc<DBManager>, session_manager: Arc<SessionManager>) -> Self {
+    fn new(
+        db: Arc<DBManager>,
+        session_manager: Arc<SessionManager>,
+        cripto_manager: Arc<CryptoManager>,
+    ) -> Self {
         AppState {
             db,
             session_manager,
+            cripto_manager,
         }
     }
 }
@@ -43,9 +50,11 @@ impl HTTPServer {
     pub async fn start(&self) -> Result<(), Box<dyn std::error::Error>> {
         let database_manager = DBManager::new().await?;
         database_manager.configure_database().await?;
+        let cripto_manager = Arc::new(CryptoManager::new()?);
         let app_state = Arc::new(AppState::new(
             database_manager.clone(),
             self.session_manager.clone(),
+            cripto_manager.clone(),
         ));
 
         let public_routes = Router::new()
@@ -57,6 +66,7 @@ impl HTTPServer {
         let protected_routes = Router::new()
             .route("/api/data", get(Self::get_data))
             .route("/api/message", post(DataRequestHandler::handle_message))
+            .route("/api/exit", post(DataRequestHandler::handle_message))
             .layer(middleware::from_fn_with_state(
                 app_state.clone(),
                 auth_middleware,
@@ -74,11 +84,6 @@ impl HTTPServer {
         let addr = "0.0.0.0:8443".parse()?;
         println!("🚀 Starting HTTPS server on https://{}", addr);
         println!("👤 Server pentru punctIT - 2025-10-13 20:23:53 UTC");
-        println!("📱 Entry points disponibile:");
-        println!("   GET  /health - verifică starea");
-        println!("   GET  /api/data - date generale");
-        println!("   POST /api/message - mesaje specifice în funcție de tip");
-        println!("   POST /api/auth - autentificare");
 
         axum_server::bind_rustls(addr, tls_config)
             .serve(app.into_make_service_with_connect_info::<std::net::SocketAddr>())

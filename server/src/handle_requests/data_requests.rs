@@ -4,11 +4,14 @@ use axum::{
     response::Json,
 };
 use chrono::Utc;
-
+use serde_json::Value;
 use std::sync::Arc;
 
 use crate::handle_requests::personal_data_requests::identity_card::IdentityCard;
+use crate::handle_requests::personal_data_requests::personal_data_manager::PersonalDataManager;
+use crate::handle_requests::response_handler::ResponseHandler;
 use crate::network::server_https::AppState;
+
 pub struct DataRequestHandler {}
 impl DataRequestHandler {
     pub async fn handle_message(
@@ -20,10 +23,10 @@ impl DataRequestHandler {
             "InsertIdenityCard" => IdentityCard::insert(&request, app_state).await,
             "GetIdenityCard" => IdentityCard::get(&request, app_state).await,
             "UpdateIdenityCard" => IdentityCard::update(&request, app_state).await,
-            "notification" => IdentityCard::get(&request, app_state).await,
+            "GetWalletCards" => PersonalDataManager::get_wallet_data(&request, app_state).await,
             "nimic" => IdentityCard::get(&request, app_state).await,
             "identity_verify" => IdentityCard::get(&request, app_state).await,
-            _ => IdentityCard::get(&request, app_state).await,
+            _ => DataRequestHandler::unknown().await,
         };
 
         Json(MessageResponse {
@@ -32,5 +35,8 @@ impl DataRequestHandler {
             data,
             timestamp: Utc::now().to_rfc3339(),
         })
+    }
+    async fn unknown() -> (bool, Value) {
+        ResponseHandler::standard_error(String::from("unknown request"))
     }
 }
