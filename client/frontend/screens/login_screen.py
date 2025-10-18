@@ -9,6 +9,7 @@ from kivy.graphics.texture import Texture
 from kivy.uix.widget import Widget
 from kivy.uix.behaviors import ButtonBehavior
 from kivy.core.window import Window
+from kivy.metrics import dp, sp  # <-- responsive units
 
 BG_TOP      = (0.06, 0.07, 0.10, 1)
 BG_BOTTOM   = (0.03, 0.05, 0.09, 1)
@@ -26,19 +27,23 @@ INPUT_HINT   = (0.60, 0.66, 0.76, 1)
 
 Window.clearcolor = BG_BOTTOM
 
+# ---------- utilities ----------
+def _clamp(val, lo, hi):
+    return max(lo, min(hi, val))
+
 def make_rounded_button(text, color, on_press_callback):
     btn = Button(
         text=text,
-        font_size='16sp',
-        size_hint=(None, None),   # <-- no horizontal stretching; we'll set width via wrapper
-        height=46,
+        font_size=sp(16),
+        size_hint=(None, None),
+        height=dp(46),
         background_color=(0, 0, 0, 0),
         background_normal='',
         color=(1, 1, 1, 1)
     )
     with btn.canvas.before:
         btn._bg_color = Color(*color)
-        btn.bg = RoundedRectangle(radius=[20, 20, 20, 20])
+        btn.bg = RoundedRectangle(radius=[dp(20)]*4)
 
     def update_bg(*_):
         btn.bg.pos = btn.pos
@@ -55,15 +60,15 @@ def make_rounded_button(text, color, on_press_callback):
     btn.bind(state=on_state)
     return btn
 
-# --- rounded TextInput wrapper with focus outline ---
+# rounded TextInput wrapper with focus outline
 def make_rounded_input(hint_text, *, password=False):
-    wrapper = AnchorLayout(size_hint=(None, None), height=46, anchor_x='center', anchor_y='center')
+    wrapper = AnchorLayout(size_hint=(None, None), height=dp(46), anchor_x='center', anchor_y='center')
 
     with wrapper.canvas.before:
         wrapper._fill = Color(*INPUT_BG)
-        wrapper._bg = RoundedRectangle(radius=[12, 12, 12, 12])
+        wrapper._bg = RoundedRectangle(radius=[dp(12)]*4)
         wrapper._outline_color = Color(1, 1, 1, 0.08)
-        wrapper._outline = RoundedRectangle(radius=[12, 12, 12, 12])
+        wrapper._outline = RoundedRectangle(radius=[dp(12)]*4)
 
     def sync_bg(*_):
         wrapper._bg.pos = wrapper.pos
@@ -77,7 +82,7 @@ def make_rounded_input(hint_text, *, password=False):
         password=password,
         multiline=False,
         size_hint=(1, 1),
-        padding=(12, 12),
+        padding=(dp(12), dp(12)),
         background_color=(0, 0, 0, 0),
         foreground_color=INPUT_TEXT,
         cursor_color=ACCENT,
@@ -92,14 +97,15 @@ def make_rounded_input(hint_text, *, password=False):
 
     return wrapper, ti
 
-# --- NEW: center a child at a relative width of its parent ---
-def center_row(child, *, rel_width=0.85, height=None):
+# center a child at a relative width with min/max clamps (all dp)
+def center_row(child, *, rel_width=0.85, min_w=dp(260), max_w=dp(520), height=None):
     row = AnchorLayout(anchor_x='center', anchor_y='center', size_hint=(1, None),
-                       height=height if height is not None else child.height)
-    # make child fixed-width inside the row; width tracks a fraction of row width
+                       height=height if height is not None else (child.height or dp(46)))
     child.size_hint_x = None
+
     def _bind_width(_row, _val):
-        child.width = row.width * rel_width
+        target = _clamp(row.width * rel_width, min_w, max_w)
+        child.width = target
     row.bind(width=_bind_width)
     row.add_widget(child)
     return row
@@ -167,9 +173,9 @@ class LoginScreen(Screen):
                  '[color=#8FB9FF]ID[/color] '
                  '[color=#BBD3FF]WALLET[/color][/b]',
             markup=True,
-            font_size='32sp',
+            font_size=sp(32),
             size_hint=(None, None),
-            height=60,
+            height=dp(60),
             color=TEXT_PRIMARY
         )
         top_anchor.add_widget(title)
@@ -181,18 +187,19 @@ class LoginScreen(Screen):
 
         card = BoxLayout(
             orientation='vertical',
-            spacing=10,                 # a bit tighter so errors fit nicely
-            padding=[22, 22, 22, 22],
-            size_hint=(0.9, None)
+            spacing=dp(10),
+            padding=[dp(22), dp(22), dp(22), dp(22)],
+            size_hint=(None, None)  # we'll make width responsive below
         )
+        # let height follow content
         card.bind(minimum_height=card.setter('height'))
 
         with card.canvas.before:
             Color(*CARD_BG)
-            self.card_bg = RoundedRectangle(radius=[20, 20, 20, 20])
+            self.card_bg = RoundedRectangle(radius=[dp(20)]*4)
         with card.canvas.after:
             Color(*CARD_STROKE)
-            self.card_border = RoundedRectangle(radius=[20, 20, 20, 20])
+            self.card_border = RoundedRectangle(radius=[dp(20)]*4)
 
         def _sync_bg(*_):
             self.card_bg.pos = card.pos
@@ -204,19 +211,19 @@ class LoginScreen(Screen):
         subtitle = Label(
             text='[b][color=#BBD3FF]Log[/color] [color=#8FB9FF]in[/color][/b]',
             markup=True,
-            font_size='28sp',
+            font_size=sp(28),
             size_hint=(1, None),
-            height=34,
+            height=dp(34),
             color=TEXT_PRIMARY
         )
 
         # ---- helpers for error labels
         def make_error_label():
             lbl = Label(text='',
-                        color=(1, 0.35, 0.4, 1),      # soft red
+                        color=(1, 0.35, 0.4, 1),
                         size_hint=(1, None),
-                        height=0,                     # hidden by default
-                        font_size='13sp',
+                        height=0,
+                        font_size=sp(13),
                         halign='left',
                         valign='middle')
             lbl.bind(size=lambda l, s: setattr(l, 'text_size', (s[0], None)))
@@ -226,7 +233,7 @@ class LoginScreen(Screen):
             if message:
                 lbl.text = message
                 lbl.texture_update()
-                lbl.height = max(18, lbl.texture_size[1] + 2)
+                lbl.height = max(dp(18), lbl.texture_size[1] + dp(2))
             else:
                 lbl.text = ''
                 lbl.height = 0
@@ -245,7 +252,7 @@ class LoginScreen(Screen):
             text="[color=#9FB4D9]Not registered?[/color] "
                  "[color=#3F86FF][b]Register now[/b][/color]",
             markup=True,
-            font_size="15sp",
+            font_size=sp(15),
             size_hint_y=None,
             halign="center",
             valign="middle",
@@ -261,23 +268,31 @@ class LoginScreen(Screen):
         card.add_widget(subtitle)
 
         # username (error above field)
-        card.add_widget(center_row(self.err_user,     rel_width=0.85, height=self.err_user.height))
-        card.add_widget(center_row(self.username_box, rel_width=0.85, height=46))
+        card.add_widget(center_row(self.err_user,     rel_width=0.85, min_w=dp(260), max_w=dp(520), height=self.err_user.height))
+        card.add_widget(center_row(self.username_box, rel_width=0.85, min_w=dp(260), max_w=dp(520), height=dp(46)))
 
         # password (error above field)
-        card.add_widget(center_row(self.err_pass,     rel_width=0.85, height=self.err_pass.height))
-        card.add_widget(center_row(self.password_box, rel_width=0.85, height=46))
+        card.add_widget(center_row(self.err_pass,     rel_width=0.85, min_w=dp(260), max_w=dp(520), height=self.err_pass.height))
+        card.add_widget(center_row(self.password_box, rel_width=0.85, min_w=dp(260), max_w=dp(520), height=dp(46)))
 
-        card.add_widget(center_row(login_btn, rel_width=0.65, height=46))
-        card.add_widget(Widget(size_hint_y=None, height=25))
+        card.add_widget(center_row(login_btn, rel_width=0.65, min_w=dp(220), max_w=dp(420), height=dp(46)))
+        card.add_widget(Widget(size_hint_y=None, height=dp(25)))
         card.add_widget(info_label)
 
         outer.add_widget(card)
 
-        # Dynamic offsets
+        # ------- responsive sizing rules -------
         def update_layout(*_):
+            # title padding ~8% of height
             top_anchor.padding = [0, int(Window.height * 0.08), 0, 0]
+
+            # card width: 92% of window, clamped between 320dp and 720dp
+            target_w = _clamp(Window.width * 0.92, dp(320), dp(720))
+            card.width = target_w
+
+            # keep a tiny bottom offset
             outer.padding = [0, 0, 0, int(Window.height * 0.01)]
+
         update_layout()
         Window.bind(size=lambda *_: update_layout())
 
@@ -310,8 +325,18 @@ class LoginScreen(Screen):
         if has_error:
             return
 
-        if self.server and self.server.send_login(username, password) is not None:
-            self.go_next()
+        if not self.server:
+            self._set_error(self.err_user, "Server connection unavailable.")
+            return
+
+        response = self.server.send_login(username, password)
+        if response:
+            if self.manager and self.manager.has_screen('home'):
+                home = self.manager.get_screen('home')
+                home.set_server(self.server)
+                home.set_user_info(response.get('user_info'))
+                self.manager.transition.direction = 'left'
+                self.manager.current = 'home'
         else:
-            # show a general error above username if connection fails
-            self._set_error(self.err_user, "Could not connect to server. Please try again.")
+            message = getattr(self.server, "last_message", None) or "Could not connect to server. Please try again."
+            self._set_error(self.err_user, message)
