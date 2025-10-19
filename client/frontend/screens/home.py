@@ -1,4 +1,5 @@
 from kivy.core.window import Window
+from kivy.app import App
 from kivy.graphics import Color, RoundedRectangle, Rectangle, Ellipse
 from kivy.graphics.texture import Texture
 from kivy.metrics import dp, sp
@@ -9,6 +10,8 @@ from kivy.uix.label import Label
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.screenmanager import Screen
 from kivy.uix.widget import Widget
+from kivy.uix.behaviors import ButtonBehavior
+from kivy.uix.carousel import Carousel
 
 # ------------------------ THEME ------------------------
 BG_TOP      = (0.06, 0.07, 0.10, 1)
@@ -25,6 +28,35 @@ ACCENT_YELLOW  = (0.98, 0.90, 0.16, 1)   # scan button
 CARD_DARKER    = (0.11, 0.13, 0.18, 1)
 
 Window.clearcolor = BG_BOTTOM
+
+CATEGORY_TILE_CONFIG = [
+    {
+        "screen_name": "personal_docs",
+        "title": "Personal Docs",
+        "subtitle": "Carte de identitate, Permis auto, etc.",
+        "chips": [("CI", "CI"), ("Permis", "Permis"), ("RCA", "RCA")],
+    },
+    {
+        "screen_name": "vehicul_docs",
+        "title": "Vehicul",
+        "subtitle": "Asigurări, ITP, Talon auto.",
+        "chips": [("Asigurări", "Asigurări"), ("Talon", "Talon")],
+    },
+    {
+        "screen_name": "transport_docs",
+        "title": "Transport",
+        "subtitle": "Abonamente și bilete.",
+        "chips": [("Abonamente", "Abonamente"), ("Bilete", "Bilete")],
+    },
+    {
+        "screen_name": "diverse_docs",
+        "title": "Diverse",
+        "subtitle": "Alte documente digitale.",
+        "chips": [("Biblioteca", "Biblioteca"), (None, "Arhiva")],
+    },
+]
+
+CATEGORY_SCREEN_NAMES = [item["screen_name"] for item in CATEGORY_TILE_CONFIG]
 
 # ------------------------ UTILITIES ------------------------
 def _clamp(v, lo, hi): return max(lo, min(hi, v))
@@ -102,6 +134,14 @@ class GradientBackground(BoxLayout):
 
 
 def make_round_icon_button(char="⚙", bg=CARD_BG, size=dp(44), fg=TEXT_PRIMARY):
+    # FIX: Replaced Unicode icon with text to prevent placeholder squares
+    if char == "⚙":
+        display_char = "SET"
+    elif char == "👤":
+        display_char = "USER"
+    else:
+        display_char = char
+
     root = AnchorLayout(size_hint=(None, None), size=(size, size))
     with root.canvas.before:
         Color(*bg)
@@ -110,7 +150,7 @@ def make_round_icon_button(char="⚙", bg=CARD_BG, size=dp(44), fg=TEXT_PRIMARY)
         root._circle.size = root.size
         root._circle.pos  = root.pos
     root.bind(size=_sync, pos=_sync)
-    lbl = Label(text=char, color=fg, font_size=sp(20))
+    lbl = Label(text=display_char, color=fg, font_size=sp(12) if len(display_char) > 1 else sp(20))
     root.add_widget(lbl)
     return root
 
@@ -133,7 +173,8 @@ def make_dot(active=False):
     w = Widget(size_hint=(None, None), size=(s, s))
     col = (1,1,1,0.9) if active else (1,1,1,0.25)
     with w.canvas:
-        Color(*col); w._c = Ellipse(size=w.size, pos=w.pos)
+        w._color_instr = Color(*col) # Store Color instruction for dynamic updates
+        w._c = Ellipse(size=w.size, pos=w.pos)
     w.bind(size=lambda *_: setattr(w._c, 'size', w.size),
            pos=lambda *_: setattr(w._c, 'pos',  w.pos))
     return w
@@ -169,78 +210,102 @@ def make_chip(icon_char, text):
     
     return chip
 
-# --- Category Tile Maker ---
-def make_category_tile(title, subtitle, chips=None):
-    # Increased height slightly to accommodate the new vertical centering of chips
-    tile = AnchorLayout(size_hint=(1, None), height=dp(190)) 
-    with tile.canvas.before:
-        Color(*CARD_BG)
-        tile._bg = RoundedRectangle(radius=[dp(18)]*4, pos=tile.pos, size=tile.size)
-    tile.bind(pos=lambda *_: setattr(tile._bg, 'pos', tile.pos),
-              size=lambda *_: setattr(tile._bg, 'size', tile.size))
+# --- New Clickable Category Tile Class ---
+class CategoryTile(ButtonBehavior, AnchorLayout):
+    def __init__(self, sm, screen_name, title, subtitle, chips=None, **kwargs):
+        super().__init__(**kwargs)
+        self.sm = sm if hasattr(sm, "has_screen") else None
+        self.screen_name = screen_name
+        self.size_hint = (1, None)
+        self.height = dp(190)
 
-    inner = BoxLayout(orientation='vertical', padding=[dp(16)]*2, spacing=dp(8)) 
-    
-    # --- TOP HALF AREA (Title & Subtitle) ---
-    header = BoxLayout(orientation='vertical', size_hint_y=None, height=dp(75), spacing=dp(4)) 
-    
-    # Title Label (Centered)
-    title_label = ScalableLabel(
-        text=f"[b]{title}[/b]", markup=True, color=ACCENT,
-        halign='center', valign='bottom', max_font_size_sp=sp(30), padding_dp=dp(5)
-    )
-    
-    header.add_widget(title_label)
-    
-    # Subtitle Label (Centered)
-    header.add_widget(
-        Label(text=subtitle, color=TEXT_SECONDARY,
-              font_size=sp(15), halign='center', valign='top', size_hint_y=None, height=dp(20))
-    )
-    inner.add_widget(header)
+        # --- DRAWING / APPEARANCE LOGIC ---
+        with self.canvas.before:
+            Color(*CARD_BG)
+            self._bg = RoundedRectangle(radius=[dp(18)]*4, pos=self.pos, size=self.size)
+        with self.canvas.after:
+            Color(*CARD_STROKE)
+            self._stroke = RoundedRectangle(radius=[dp(18)]*4, pos=self.pos, size=self.size)
+        
+        def _sync(*_):
+            self._bg.pos = self.pos
+            self._bg.size = self.size
+            self._stroke.pos = (self.x - .5, self.y - .5)
+            self._stroke.size = (self.width + 1, self.height + 1)
+        self.bind(pos=_sync, size=_sync)
 
-    # --- BOTTOM HALF AREA (Chips) ---
-    if chips:
+        # --- INNER CONTENT LAYOUT ---
+        inner = BoxLayout(orientation='vertical', padding=[dp(16)]*2, spacing=dp(8)) 
         
-        # Container for horizontal centering of the chip group (single row)
-        center_anchor = AnchorLayout(anchor_x='center', size_hint_y=1, padding=[0, dp(5), 0, 0])
+        # TOP HALF AREA (Title & Subtitle)
+        header = BoxLayout(orientation='vertical', size_hint_y=None, height=dp(75), spacing=dp(4)) 
         
-        # Chip Group: All chips in one horizontal BoxLayout
-        chip_row = BoxLayout(orientation='horizontal', spacing=dp(10), size_hint=(None, None), height=dp(34))
+        title_label = ScalableLabel(
+            text=f"[b]{title}[/b]", markup=True, color=ACCENT,
+            halign='center', valign='bottom', max_font_size_sp=sp(30), padding_dp=dp(5)
+        )
+        header.add_widget(title_label)
         
-        # Manually calculate width based on children to ensure size_hint=(None, None) works
-        def calculate_chip_row_width(*args):
-            total_width = sum(chip.width for chip in chip_row.children)
-            spacing_width = chip_row.spacing * (len(chip_row.children) - 1)
-            chip_row.width = total_width + spacing_width
-            chip_row.height = dp(34) # Height remains constant
+        header.add_widget(
+            Label(text=subtitle, color=TEXT_SECONDARY,
+                  font_size=sp(15), halign='center', valign='top', size_hint_y=None, height=dp(20))
+        )
+        inner.add_widget(header)
+
+        # BOTTOM HALF AREA (Chips)
+        if chips:
+            # Container for horizontal centering of the chip group (single row)
+            center_anchor = AnchorLayout(anchor_x='center', size_hint_y=1, padding=[0, dp(5), 0, 0])
+            chip_row = BoxLayout(orientation='horizontal', spacing=dp(10), size_hint=(None, None), height=dp(34))
             
-        # Add chips and track them
-        for ic, txt in chips:
-            chip = make_chip(ic, txt)
-            # Bind chip size changes to update the row width
-            chip.bind(size=calculate_chip_row_width)
-            chip_row.add_widget(chip)
-        
-        # Initial width calculation (necessary because we rely on chip sizes)
-        # Note: Kivy's timing makes perfect auto-sizing hard, but this is the best approach.
-        calculate_chip_row_width()
+            # Manually calculate width based on children to ensure size-to-content works
+            def calculate_chip_row_width(*args):
+                total_width = sum(chip.width for chip in chip_row.children)
+                spacing_width = chip_row.spacing * (len(chip_row.children) - 1)
+                chip_row.width = total_width + spacing_width
+            
+            for ic, txt in chips:
+                chip = make_chip(ic, txt)
+                chip.bind(size=calculate_chip_row_width)
+                chip_row.add_widget(chip)
+            
+            calculate_chip_row_width() # Initial width calculation
+            center_anchor.add_widget(chip_row)
+            inner.add_widget(center_anchor)
+        else:
+            inner.add_widget(Widget(size_hint_y=1)) 
 
-        center_anchor.add_widget(chip_row)
-        inner.add_widget(center_anchor)
-    else:
-        inner.add_widget(Widget(size_hint_y=1)) 
+        self.add_widget(inner)
 
-    tile.add_widget(inner)
-    return tile
+    # --- CLICK BEHAVIOR ---
+    def on_release(self):
+        manager = self._resolve_manager()
+        if manager and manager.has_screen(self.screen_name):
+            manager.transition.direction = 'left'
+            manager.current = self.screen_name
 
+    def _resolve_manager(self):
+        if self.sm and hasattr(self.sm, "has_screen"):
+            return self.sm
+        app = App.get_running_app()
+        if app and hasattr(app, "root"):
+            return app.root
+        parent = self.parent
+        while parent:
+            mgr = getattr(parent, "manager", None)
+            if mgr:
+                return mgr
+            parent = getattr(parent, "parent", None)
+        return None
 
 # ------------------------ HOME SCREEN ------------------------
 class HomeScreen(Screen):
-    def __init__(self, server=None, **kwargs):
+    # Added sm (ScreenManager) argument
+    def __init__(self, sm=None, server=None, **kwargs):
         super().__init__(name="home", **kwargs)
         self.server = server
         self.user_info = {}
+        self.sm = sm if hasattr(sm, "has_screen") else None  # Store ScreenManager reference
 
         self.add_widget(GradientBackground())
         root = BoxLayout(orientation='vertical', padding=[dp(16), dp(8), dp(16), dp(8)], spacing=dp(12))
@@ -252,9 +317,10 @@ class HomeScreen(Screen):
         title = Label(text='[b][color=#33A3FF]smart id[/color][/b]', markup=True,
                       halign='left', valign='middle', color=TEXT_PRIMARY, font_size=sp(32))
         title.bind(size=lambda l, s: setattr(l, 'text_size', s))
+        # Icons are handled by make_round_icon_button (Displays "SET" and "USER")
         right = BoxLayout(size_hint_x=0.3, spacing=dp(10)) 
-        right.add_widget(make_round_icon_button("⚙"))
-        right.add_widget(make_round_icon_button("👤"))
+        right.add_widget(make_round_icon_button("⚙")) 
+        right.add_widget(make_round_icon_button("👤")) 
         topbar.add_widget(title)
         topbar.add_widget(right)
         root.add_widget(topbar)
@@ -280,34 +346,83 @@ class HomeScreen(Screen):
                               halign='right', valign='middle', color=TEXT_SECONDARY))
         root.add_widget(head)
 
-        # TRANSPORT CARD
+        # --- CONVERTED AREA: TRANSPORT CARD TO SLIDEABLE CAROUSEL ---
+        
+        # 1. Carousel Container: AnchorLayout for size management
         carousel_row = AnchorLayout(size_hint_y=None, height=dp(150))
-        card = make_card(_clamp(Window.width * 0.9, dp(280), dp(700)), dp(130), radius=dp(22), bg=CARD_DARKER)
-        self._main_card = card
-        card_content = BoxLayout(orientation='horizontal', padding=[dp(16)]*2, spacing=dp(12))
-        logo = AnchorLayout(size_hint=(None, 1), width=dp(90))
-        with logo.canvas.before:
-            Color(1,1,1,1)
-            logo._lg_bg = RoundedRectangle(radius=[dp(16)]*4, pos=logo.pos, size=logo.size)
-        logo.bind(pos=lambda *_: setattr(logo._lg_bg, 'pos', logo.pos),
-                  size=lambda *_: setattr(logo._lg_bg, 'size', logo.size))
-        card_content.add_widget(logo)
+        
+        # 2. Carousel Widget
+        self.main_carousel = Carousel(
+            direction='right',
+            anim_move_duration=0.2,
+            size_hint=(1.0, 1.0)
+        )
+        
+        # Helper function to create a slide card
+        def create_news_card(title_text, subtitle_text, accent_color):
+            card_width = _clamp(Window.width * 0.9, dp(280), dp(700))
+            card = make_card(card_width, dp(130), radius=dp(22), bg=CARD_DARKER)
+            self._main_card = card # Keep reference for size updates
+            
+            card_content = BoxLayout(orientation='horizontal', padding=[dp(16)]*2, spacing=dp(12))
+            
+            # Left side (Placeholder for image/icon)
+            logo = AnchorLayout(size_hint=(None, 1), width=dp(90))
+            with logo.canvas.before:
+                Color(1,1,1,1)
+                logo._lg_bg = RoundedRectangle(radius=[dp(16)]*4, pos=logo.pos, size=logo.size)
+            logo.bind(pos=lambda *_: setattr(logo._lg_bg, 'pos', logo.pos),
+                      size=lambda *_: setattr(logo._lg_bg, 'size', logo.size))
+            card_content.add_widget(logo)
 
-        v = BoxLayout(orientation='vertical', spacing=dp(4))
-        v.add_widget(Label(text="Compania de Transport Public Iași S...", color=TEXT_SECONDARY, font_size=sp(14)))
-        v.add_widget(Label(text="[b]Valabil până la 31.10.25 11:59[/b]", markup=True, color=TEXT_PRIMARY, font_size=sp(18)))
-        v.add_widget(Label(text="Abonament o zonă", color=TEXT_SECONDARY, font_size=sp(14)))
-        card_content.add_widget(v)
-        card.add_widget(card_content)
-        carousel_row.add_widget(card)
+            # Right side (Text content)
+            v = BoxLayout(orientation='vertical', spacing=dp(4))
+            v.add_widget(Label(text=subtitle_text, color=TEXT_SECONDARY, font_size=sp(14), halign='left', valign='bottom'))
+            v.add_widget(Label(text=f"[b][color={accent_color}]{title_text}[/color][/b]", markup=True, color=TEXT_PRIMARY, font_size=sp(18), halign='left', valign='middle'))
+            v.add_widget(Label(text="Apăsați pentru detalii", color=TEXT_SECONDARY, font_size=sp(14), halign='left', valign='top'))
+            card_content.add_widget(v)
+            card.add_widget(card_content)
+            
+            # Add card content to a BoxLayout to hold it inside the Carousel
+            slide = BoxLayout(orientation='vertical')
+            # FIX: Ensure card widget is centered in the slide
+            center_anchor = AnchorLayout(anchor_x='center', anchor_y='center', size_hint=(1, 1))
+            center_anchor.add_widget(card)
+            slide.add_widget(center_anchor)
+            return slide
+
+        # Add multiple slides to the carousel
+        self.main_carousel.add_widget(create_news_card(
+            "Noutăți Zone ITP", "Verificați reglementările noi de azi.", "#FFFFFF"
+        ))
+        self.main_carousel.add_widget(create_news_card(
+            "Abonament Zonal (Exp)", "Valabil până la 31.10.25 11:59", ACCENT_YELLOW
+        ))
+        self.main_carousel.add_widget(create_news_card(
+            "Anunțuri Trafic", "Restricții de circulație și devieri.", "#FF6666"
+        ))
+
+        carousel_row.add_widget(self.main_carousel)
         root.add_widget(carousel_row)
 
+        # 3. Dots indicator (connected to the carousel)
         dots = BoxLayout(size_hint_y=None, height=dp(14), spacing=dp(6), padding=[0, 0, 0, dp(4)])
+        self.dot_widgets = [make_dot(i == 0) for i in range(len(self.main_carousel.children))]
+        
         dots.add_widget(Widget())
-        dots.add_widget(make_dot(True))
-        dots.add_widget(make_dot(False))
+        for dot in self.dot_widgets:
+            dots.add_widget(dot)
         dots.add_widget(Widget())
         root.add_widget(dots)
+        
+        # Link dots to carousel index
+        def update_dots(instance, value):
+            current_index = self.main_carousel.index
+            for i, dot in enumerate(self.dot_widgets):
+                target_color = (1,1,1,0.9) if i == current_index else (1,1,1,0.25)
+                # FIX: Access the stored Color instruction to update the dot color
+                dot._color_instr.rgba = target_color
+        self.main_carousel.bind(index=update_dots)
 
         # SCROLL GRID
         sv = ScrollView(size_hint=(1, 1))
@@ -316,38 +431,46 @@ class HomeScreen(Screen):
         grid = GridLayout(cols=2, padding=[dp(8), dp(8)], spacing=dp(14), size_hint_y=None)
         grid.bind(minimum_height=grid.setter("height"))
 
-        # CATEGORY CARDS (using the fixed tile maker)
-        grid.add_widget(make_category_tile(
-            "Personal Docs", "Carte de identitate, Permis auto, etc.",
-            [("CI", "CI"), ("Permis", "Permis"), ("RCA", "RCA")] 
-        ))
-        grid.add_widget(make_category_tile(
-            "Vehicul", "Asigurări, ITP, Talon auto.",
-            [("Asigurări", "Asigurări"), ("Talon", "Talon")]
-        ))
-        grid.add_widget(make_category_tile(
-            "Transport", "Abonamente și bilete.",
-            [("Abonamente", "Abonamente"), ("Bilete", "Bilete")]
-        ))
-        grid.add_widget(make_category_tile(
-            "Diverse", "Alte documente digitale.", 
-            [("Biblioteca", "Biblioteca"), (None, "Arhiva")] 
-        ))
+        # CATEGORY CARDS (Now using the clickable CategoryTile class)
+        for tile in CATEGORY_TILE_CONFIG:
+            grid.add_widget(CategoryTile(
+                sm=self.sm,
+                screen_name=tile["screen_name"],
+                title=tile["title"],
+                subtitle=tile["subtitle"],
+                chips=tile.get("chips"),
+            ))
 
         grid_wrap.add_widget(grid)
         sv.add_widget(grid_wrap)
-        root.add_widget(sv) # <-- CORRECTED LINE
-        # root.add_widget(root) <-- REMOVED ERROR LINE
+        root.add_widget(sv)
 
         # BOTTOM BAR
         self._build_bottom_nav()
 
         def _update_card(*_):
-            if self._main_card:
-                self._main_card.size = (_clamp(Window.width * 0.9, dp(280), dp(700)), dp(130))
+            # Update size for card based on window size
+            new_width = _clamp(Window.width * 0.9, dp(280), dp(700))
+            if self.main_carousel:
+                # Iterate through all slides and update the size of the inner card
+                for slide in self.main_carousel.slides:
+                    # Logic to find the inner card within the AnchorLayout
+                    if slide.children and slide.children[0].children:
+                        card_container = slide.children[0]
+                        if card_container.children:
+                            card_widget = card_container.children[0] 
+                            # If card_widget is indeed the card from make_card
+                            if isinstance(card_widget, AnchorLayout):
+                                card_widget.size = (new_width, dp(130))
 
-        _update_card()
+
         Window.bind(size=lambda *_: _update_card())
+        _update_card() # Initial call
+        self.bind(manager=self._bind_manager)
+
+    def _bind_manager(self, *_):
+        if hasattr(self, "manager") and hasattr(self.manager, "has_screen"):
+            self.sm = self.manager
 
     def _build_bottom_nav(self):
         layer = AnchorLayout(anchor_x='center', anchor_y='bottom', size_hint=(1, None), height=dp(96))
@@ -396,7 +519,7 @@ class HomeScreen(Screen):
         if username:
             self._set_welcome_text(
                 f"[color=#9FB4D9]Welcome back,[/color] [b]{username}[/b]"
-            )
+        )
         else:
             self._set_welcome_text("")
 
@@ -408,3 +531,6 @@ class HomeScreen(Screen):
         else:
             self.welcome_label.text = ""
             self.welcome_label.height = 0
+
+
+__all__ = ["CATEGORY_TILE_CONFIG", "CATEGORY_SCREEN_NAMES", "HomeScreen"]
