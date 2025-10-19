@@ -1,9 +1,6 @@
 use crate::handle_requests::response_handler::ResponseHandler;
 use crate::others::common::{MessageRequest, MessageResponse};
-use axum::{
-    extract::{Json as ExtractJson, State},
-    response::Json,
-};
+use axum::{extract::Json as ExtractJson, response::Json};
 use chrono::Utc;
 use reqwest::Client;
 use serde_json::json;
@@ -16,7 +13,9 @@ impl AiRequests {
         println!("📨 Request primit: {:?}", request);
         let (success, data) = match request.message_type.as_str() {
             "ChatBot" => AiRequests::call_python_chat(&request).await,
-            _ => AiRequests::call_python_chat(&request).await,
+            "OCR" => AiRequests::call_python_ocr(&request).await,
+            "health" => AiRequests::call_python_health().await,
+            _ => AiRequests::unknown().await,
         };
 
         Json(MessageResponse {
@@ -46,38 +45,38 @@ impl AiRequests {
 
         (true, chat_response)
     }
-}
 
-pub async fn call_python_ocr(request: &MessageRequest) -> (bool, Value) {
-    // let client = Client::new();
+    pub async fn call_python_ocr(request: &MessageRequest) -> (bool, Value) {
+        let client = Client::new();
 
-    // let part = reqwest::multipart::Part::bytes(image_bytes.to_vec())
-    //     .file_name("upload.jpg")
-    //     .mime_str("image/jpeg")?;
+        let response = match client
+            .post("http://localhost:8001/ocr")
+            .json(&request)
+            .send()
+            .await
+        {
+            Ok(re) => re,
+            Err(e) => return ResponseHandler::standard_error(e.to_string()),
+        };
 
-    // let form = reqwest::multipart::Form::new()
-    //     .part("file", part);
+        let chat_response: Value = response.json().await.unwrap();
 
-    // let response = client
-    //     .post("http://localhost:8001/ocr")
-    //     .multipart(form)
-    //     .send()
-    //     .await?;
+        println!("{:?}", chat_response);
 
-    // let ocr_response: OCRResponse = response.json().await?;
+        (true, chat_response)
+    }
+    pub async fn call_python_health() -> (bool, Value) {
+        let client = Client::new();
 
-    // println!("✅ OCR response: {} (from {})", ocr_response.text, ocr_response.service);
+        let response = match client.get("http://localhost:8001/health").send().await {
+            Ok(re) => re,
+            Err(e) => return ResponseHandler::standard_error(e.to_string()),
+        };
+        let health_response: String = response.json().await.unwrap();
 
-    (false, json!(" "))
-}
-pub async fn call_python_health(request: &MessageRequest) -> (bool, Value) {
-    let client = Client::new();
-
-    let response = match client.get("http://localhost:8001/health").send().await {
-        Ok(re) => re,
-        Err(e) => return ResponseHandler::standard_error(e.to_string()),
-    };
-    let health_response: String = response.json().await.unwrap();
-
-    (true, json!(health_response))
+        (true, json!(health_response))
+    }
+    async fn unknown() -> (bool, Value) {
+        ResponseHandler::standard_error(String::from("unknown request"))
+    }
 }
