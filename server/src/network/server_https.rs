@@ -9,6 +9,7 @@ use chrono::Utc;
 use serde_json::{json, Value};
 use std::sync::Arc;
 
+use crate::ai_microservice::ai_requests::AiRequests;
 use crate::data_manager::database_manager::DBManager;
 use crate::handle_requests::cripto_manager::CryptoManager;
 use crate::network::middleware::auth_middleware;
@@ -66,6 +67,7 @@ impl HTTPServer {
         let protected_routes = Router::new()
             .route("/api/data", get(Self::get_data))
             .route("/api/message", post(DataRequestHandler::handle_message))
+            .route("/api/AI", post(AiRequests::handle_ai_reqsuest))
             .route("/api/exit", post(DataRequestHandler::handle_message))
             .layer(middleware::from_fn_with_state(
                 app_state.clone(),
