@@ -8,11 +8,13 @@ import urllib3
 
 from backend.data_requester import DataRequester
 from backend.auth_requester import AuthRequester
- 
+from backend.ai_data_requester import AI_DataRequester
+
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
-class ServerConnection(Label,DataRequester,AuthRequester):
+class ServerConnection(Label,DataRequester,AuthRequester,AI_DataRequester):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.session = requests.Session()
