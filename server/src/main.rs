@@ -1,3 +1,4 @@
+mod ai_microservice;
 mod data_manager;
 mod handle_requests;
 mod network;
