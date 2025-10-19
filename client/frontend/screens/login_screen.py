@@ -11,6 +11,8 @@ from kivy.uix.behaviors import ButtonBehavior
 from kivy.core.window import Window
 from kivy.metrics import dp, sp  # <-- responsive units
 
+from frontend.screens.home import CATEGORY_SCREEN_NAMES
+
 BG_TOP      = (0.06, 0.07, 0.10, 1)
 BG_BOTTOM   = (0.03, 0.05, 0.09, 1)
 CARD_BG     = (0.13, 0.15, 0.20, 1)
@@ -20,6 +22,8 @@ TEXT_PRIMARY   = (0.92, 0.95, 1.00, 1)
 TEXT_SECONDARY = (0.70, 0.76, 0.86, 1)
 ACCENT         = (0.25, 0.60, 1.00, 1)
 ACCENT_SOFT    = (0.12, 0.35, 0.70, 1)
+
+ALLOW_LOGIN_BYPASS = True  # set False when real login is needed
 
 INPUT_BG     = (0.18, 0.20, 0.25, 1)
 INPUT_TEXT   = TEXT_PRIMARY
@@ -306,6 +310,28 @@ class LoginScreen(Screen):
         if self.manager:
             self.manager.current = 'register'
 
+    def _go_home(self, user_info=None):
+        if not self.manager:
+            return
+
+        user_info = user_info or {}
+
+        if self.manager.has_screen('home'):
+            home = self.manager.get_screen('home')
+            if hasattr(home, "set_server"):
+                home.set_server(self.server)
+            if hasattr(home, "set_user_info"):
+                home.set_user_info(user_info)
+
+        for target in CATEGORY_SCREEN_NAMES:
+            if self.manager.has_screen(target):
+                screen = self.manager.get_screen(target)
+                if hasattr(screen, "set_server"):
+                    screen.set_server(self.server)
+
+        self.manager.transition.direction = 'left'
+        self.manager.current = 'home'
+
     def go_login(self, *_):
         username = self.username_input.text.strip()
         password = self.password_input.text.strip()
@@ -313,6 +339,13 @@ class LoginScreen(Screen):
         # clear previous errors
         self._set_error(self.err_user, '')
         self._set_error(self.err_pass, '')
+
+        if ALLOW_LOGIN_BYPASS and (not username or not password):
+            self._go_home({
+                "username": username or "Test User",
+                "auth_status": "bypass"
+            })
+            return
 
         has_error = False
         if not username:

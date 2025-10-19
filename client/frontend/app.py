@@ -19,10 +19,14 @@ from kivy.vector import Vector
 
 
 from backend.server_connect import ServerConnection
+from frontend.screens.home import HomeScreen
 from frontend.screens.login_screen import LoginScreen
+from frontend.screens.personal_docs_screen import PersonalDocsScreen
+from frontend.screens.vehicul_docs_screen import VehiculDocsScreen
+from frontend.screens.transport_docs_screen import TransportDocsScreen
+from frontend.screens.diverse_docs_screen import DiverseDocsScreen
 from frontend.screens.register_screen import RegisterScreen
 from frontend.screens.splash_screen import SplashScreen
-from frontend.screens.home import HomeScreen
 
 class SwipeScreenManager(ScreenManager):
     def __init__(self, **kwargs):
@@ -68,7 +72,16 @@ class SmartIdApp(App):
         sm.add_widget(SplashScreen(self.server))
         sm.add_widget(LoginScreen(self.server))
         sm.add_widget(RegisterScreen(self.server))
-        sm.add_widget(HomeScreen(self.server))
+        sm.add_widget(HomeScreen(sm=sm, server=self.server))
+
+        category_screens = [
+            PersonalDocsScreen,
+            VehiculDocsScreen,
+            TransportDocsScreen,
+            DiverseDocsScreen,
+        ]
+        for screen_cls in category_screens:
+            sm.add_widget(screen_cls(server=self.server))
 
         sm.current = 'first'
         
