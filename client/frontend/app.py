@@ -54,15 +54,11 @@ class SmartIdApp(App):
         sm.add_widget(LoginScreen(self.server))
         sm.add_widget(RegisterScreen(self.server))
         sm.add_widget(HomeScreen(sm=sm, server=self.server))
-
-        category_screens = [
-            PersonalDocsScreen,
-            VehiculDocsScreen,
-            TransportDocsScreen,
-            DiverseDocsScreen,
-        ]
-        for screen_cls in category_screens:
-            sm.add_widget(screen_cls(server=self.server))
+        sm.add_widget(PersonalDocsScreen(self.server))
+        sm.add_widget(VehiculDocsScreen(self.server))
+        sm.add_widget(TransportDocsScreen(self.server))
+        sm.add_widget(DiverseDocsScreen(self.server))
+       
 
         sm.current = 'first'
         

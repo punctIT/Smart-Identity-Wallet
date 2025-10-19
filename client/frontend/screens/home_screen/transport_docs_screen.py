@@ -1,23 +1,32 @@
-from .document_screen_base import BaseDocumentScreen
+from kivy.uix.screenmanager import Screen
+from kivy.uix.anchorlayout import AnchorLayout
+from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.label import Label
+from kivy.graphics import Color, RoundedRectangle, Rectangle
+from kivy.graphics.texture import Texture
+from kivy.uix.widget import Widget
+from kivy.core.window import Window
+from kivy.metrics import dp, sp 
 
-TRANSPORT_DOCS_DESCRIPTION = (
-    "[b]Documente Transport[/b]\n"
-    "  • Abonamente integrate pentru transport public\n"
-    "  • Bilete și chitanțe electronice\n"
-    "  • Istoric călătorii\n\n"
-    "Organizează cardurile și abonamentele de transport pentru a le prezenta ușor la control."
-)
+
+from frontend.screens.widgets.custom_background import GradientBackground
+from frontend.screens.widgets.custom_buttons import CustomButton
+from frontend.screens.widgets.custom_input import CustomInput
+from frontend.screens.widgets.custom_label import CustomLabels,LinkLabel 
+from frontend.screens.widgets.custom_alignment import Alignment
 
 
-class TransportDocsScreen(BaseDocumentScreen):
+
+
+class TransportDocsScreen(Screen,CustomLabels,CustomButton,CustomInput,Alignment):
     def __init__(self, server=None, **kwargs):
-        super().__init__(
-            name="transport_docs",
-            title="Transport",
-            description=TRANSPORT_DOCS_DESCRIPTION,
-            server=server,
-            **kwargs,
+        super().__init__(name='transport_docs', **kwargs)
+        self.server = server
+
+        # Background gradient
+        self.bg = GradientBackground()
+        self.add_widget(self.bg)
+        title = Label(
+            text="transport"
         )
-
-
-__all__ = ["TransportDocsScreen"]
+        self.add_widget(title)

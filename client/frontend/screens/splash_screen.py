@@ -1,19 +1,12 @@
-from kivy.app import App
 from kivy.uix.label import Label
-from kivy.uix.button import Button
 from kivy.uix.boxlayout import BoxLayout
 from kivy.properties import StringProperty
 from kivy.clock import Clock
-from kivy.uix.textinput import TextInput
-from kivy.uix.screenmanager import ScreenManager, Screen, SlideTransition
+from kivy.uix.screenmanager import  Screen
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
-from kivy.uix.button import Button
-from kivy.core.window import Window
-from kivy.vector import Vector 
 from kivy.uix.image import Image
 from pathlib import Path    
-from kivy.uix.floatlayout import FloatLayout
 
 ASSETS_DIR = Path(__file__).parent / "assets"
 LOGO_PATH = ASSETS_DIR / "logo.png"

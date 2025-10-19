@@ -1,23 +1,28 @@
-from .document_screen_base import BaseDocumentScreen
+from kivy.uix.screenmanager import Screen
+from kivy.uix.anchorlayout import AnchorLayout
+from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.label import Label
+from kivy.graphics import Color, RoundedRectangle, Rectangle
+from kivy.graphics.texture import Texture
+from kivy.uix.widget import Widget
+from kivy.core.window import Window
+from kivy.metrics import dp, sp 
 
-DIVERSE_DOCS_DESCRIPTION = (
-    "[b]Documente Diverse[/b]\n"
-    "  • Legitimații de bibliotecă\n"
-    "  • Adeverințe, certificate și alte documente personale\n"
-    "  • Note și copii scanate\n\n"
-    "Folosește această secțiune pentru documentele care nu se încadrează în celelalte categorii."
-)
+
+from frontend.screens.widgets.custom_background import GradientBackground
+from frontend.screens.widgets.custom_buttons import CustomButton
+from frontend.screens.widgets.custom_input import CustomInput
+from frontend.screens.widgets.custom_label import CustomLabels,LinkLabel 
+from frontend.screens.widgets.custom_alignment import Alignment
 
 
-class DiverseDocsScreen(BaseDocumentScreen):
+
+
+class DiverseDocsScreen(Screen,CustomLabels,CustomButton,CustomInput,Alignment):
     def __init__(self, server=None, **kwargs):
-        super().__init__(
-            name="diverse_docs",
-            title="Diverse",
-            description=DIVERSE_DOCS_DESCRIPTION,
-            server=server,
-            **kwargs,
-        )
+        super().__init__(name='diverse_docs', **kwargs)
+        self.server = server
 
-
-__all__ = ["DiverseDocsScreen"]
+        # Background gradient
+        self.bg = GradientBackground()
+        self.add_widget(self.bg)
