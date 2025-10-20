@@ -139,6 +139,28 @@ class CategoryTile(ButtonBehavior, AnchorLayout,CustomCards):
     def on_release(self):
         print(self.screen_name)
         self.sm.current=self.screen_name
+
+
+class FloatingScanButton(ButtonBehavior, AnchorLayout):
+    def __init__(self, text, text_color, bg_color, on_activate, **kwargs):
+        super().__init__(**kwargs)
+        self.size_hint = (None, None)
+        self.size = (dp(72), dp(72))
+        self._on_activate = on_activate
+        with self.canvas.before:
+            Color(*bg_color)
+            self._circle = Ellipse(size=self.size, pos=self.pos)
+
+        def _sync(*_):
+            self._circle.size = self.size
+            self._circle.pos = self.pos
+
+        self.bind(size=_sync, pos=_sync)
+        self.add_widget(Label(text=text, markup=True, color=text_color, font_size=sp(14)))
+
+    def on_release(self):
+        if callable(self._on_activate):
+            self._on_activate()
     
 class HomeScreen(Screen, CustomButton, CustomCards, Alignment):
     def __init__(self, sm=None, server=None, **kwargs):
@@ -146,6 +168,7 @@ class HomeScreen(Screen, CustomButton, CustomCards, Alignment):
         self.server = server
         self.user_info = {}
         self.sm = sm if hasattr(sm, "has_screen") else None 
+        self._back_binding = False
        
         self.add_widget(GradientBackground())
         root = BoxLayout(orientation='vertical', padding=[dp(16), dp(4), dp(16), dp(4)], spacing=dp(8))
@@ -265,6 +288,24 @@ class HomeScreen(Screen, CustomButton, CustomCards, Alignment):
         _update_card() # Initial call
         self.bind(manager=self._bind_manager)
 
+    def on_pre_enter(self, *_):
+        if not self._back_binding:
+            Window.bind(on_keyboard=self._handle_back_gesture)
+            self._back_binding = True
+
+    def on_leave(self, *_):
+        if self._back_binding:
+            Window.unbind(on_keyboard=self._handle_back_gesture)
+            self._back_binding = False
+
+    def _handle_back_gesture(self, window, key, scancode, codepoint, modifier):
+        if key in (27, 1001):  # Android back button or gesture
+            app = App.get_running_app()
+            if app:
+                app.stop()
+            return True
+        return False
+
     def _bind_manager(self, *_):
         if hasattr(self, "manager") and hasattr(self.manager, "has_screen"):
             self.sm = self.manager
@@ -295,13 +336,25 @@ class HomeScreen(Screen, CustomButton, CustomCards, Alignment):
 
         layer.add_widget(bar)
 
-        fab = AnchorLayout(size_hint=(None, None), size=(dp(72), dp(72)), anchor_x='center', anchor_y='center')
-        with fab.canvas.before:
-            Color(*ACCENT_YELLOW)
-            fab._circle = Ellipse(size=fab.size, pos=fab.pos)
-        fab.bind(pos=lambda *_: setattr(fab._circle, 'pos', fab.pos),
-                 size=lambda *_: setattr(fab._circle, 'size', fab.size))
-        fab.add_widget(Label(text="[b]Scanează[/b]", markup=True, color=(0,0,0,1), font_size=sp(14)))
+        def _go_to_scan():
+            manager = self.manager
+            if manager and manager.has_screen('camera_scan'):
+                transition = getattr(manager, "transition", None)
+                previous_direction = getattr(transition, "direction", None)
+                if transition:
+                    transition.direction = 'up'
+                manager.current = 'camera_scan'
+                if transition and previous_direction:
+                    transition.direction = previous_direction
+
+        fab = FloatingScanButton(
+            text="[b]Scanează[/b]",
+            text_color=(0, 0, 0, 1),
+            bg_color=ACCENT_YELLOW,
+            on_activate=_go_to_scan,
+            anchor_x='center',
+            anchor_y='center'
+        )
         fab_container = AnchorLayout(anchor_x='center', anchor_y='bottom',
                                      size_hint=(1, None), height=dp(90), padding=[0, dp(8), 0, dp(8)])
         fab_container.add_widget(fab)

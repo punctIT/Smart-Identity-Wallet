@@ -11,6 +11,7 @@ from frontend.screens.home_screen.personal_docs_screen import PersonalDocsScreen
 from frontend.screens.home_screen.vehicul_docs_screen import VehiculDocsScreen
 from frontend.screens.home_screen.transport_docs_screen import TransportDocsScreen
 from frontend.screens.home_screen.diverse_docs_screen import DiverseDocsScreen
+from frontend.screens.home_screen.scan_camera_screen import CameraScanScreen
 from frontend.screens.register_screen import RegisterScreen
 from frontend.screens.splash_screen import SplashScreen
 
@@ -58,6 +59,7 @@ class SmartIdApp(App):
         sm.add_widget(VehiculDocsScreen(self.server))
         sm.add_widget(TransportDocsScreen(self.server))
         sm.add_widget(DiverseDocsScreen(self.server))
+        sm.add_widget(CameraScanScreen(self.server))
        
 
         sm.current = 'first'
