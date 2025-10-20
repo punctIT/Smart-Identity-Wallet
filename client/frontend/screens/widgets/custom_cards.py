@@ -13,6 +13,10 @@ from kivy.uix.screenmanager import Screen
 from kivy.uix.widget import Widget
 from kivy.uix.behaviors import ButtonBehavior
 from kivy.uix.carousel import Carousel
+import base64
+from kivy.core.image import Image as CoreImage
+from kivy.uix.image import Image
+from io import BytesIO
 
 
 from frontend.screens.widgets.custom_alignment import Alignment
@@ -42,51 +46,45 @@ class CustomCards(Alignment):
             return self._scale_sp(value)
         return sp(value)
 
-    def create_news_card(self,title_text, subtitle_text, accent_color):
-        card_width = self._clamp(Window.width * 0.9,
-                                 self._scaled_dp(280),
-                                 self._scaled_dp(700))
+    
+    def create_news_card(self, title_text, subtitle_text, accent_color):
+        card_width = self._clamp(Window.width * 0.9, self._scaled_dp(280), self._scaled_dp(700))
         card = self.make_card(card_width, 130, radius=22, bg=CARD_DARKER)
-        self._main_card = card # Keep reference for size updates
-        
-        card_content = BoxLayout(orientation='horizontal',
-                                 padding=[self._scaled_dp(16)]*2,
-                                 spacing=self._scaled_dp(12))
-        
-        # Left side (Placeholder for image/icon)
-        logo = AnchorLayout(size_hint=(None, 1), width=self._scaled_dp(90))
-        with logo.canvas.before:
-            Color(1,1,1,1)
-            logo._lg_bg = RoundedRectangle(radius=[self._scaled_dp(16)]*4, pos=logo.pos, size=logo.size)
-        logo.bind(pos=lambda *_: setattr(logo._lg_bg, 'pos', logo.pos),
-                size=lambda *_: setattr(logo._lg_bg, 'size', logo.size))
-        card_content.add_widget(logo)
+        self._main_card = card  # Keep reference for size updates
 
-        # Right side (Text content)
-        v = BoxLayout(orientation='vertical', spacing=self._scaled_dp(4))
-        
-        # Set text_size for proper alignment
-        subtitle_label = Label(text=subtitle_text, color=TEXT_SECONDARY, font_size=self._scaled_sp(14), 
-                            halign='left', valign='bottom')
-        subtitle_label.bind(size=lambda *x: setattr(subtitle_label, 'text_size', subtitle_label.size))
-        v.add_widget(subtitle_label)
-        
-        title_label = Label(text=f"[b][color={accent_color}]{title_text}[/color][/b]", markup=True, 
-                        color=TEXT_PRIMARY, font_size=self._scaled_sp(18), halign='left', valign='middle')
+        card_content = BoxLayout(orientation='horizontal', padding=[self._scaled_dp(16)], spacing=0)
+
+        v = BoxLayout(orientation='vertical', spacing=10)
+        title_label = Label(
+            text=f"[b][color={accent_color}]{title_text}[/color][/b]",
+            markup=True,
+            color=TEXT_PRIMARY,
+            font_size=self._scaled_sp(18),
+            halign='center',
+            valign='top',
+            size_hint_y=0.3,
+            height=self._scaled_dp(20)
+        )
+        subtitle_label = Label(
+            text=subtitle_text,
+            color=TEXT_SECONDARY,
+            font_size=self._scaled_sp(14),
+            halign='left',
+            valign='middle',       # <-- vertical centrat
+            size_hint_y=0.7,
+            height=self._scaled_dp(18)
+        )
+        subtitle_label.bind(
+            size=lambda *x: setattr(subtitle_label, 'text_size', subtitle_label.size)
+        )
         title_label.bind(size=lambda *x: setattr(title_label, 'text_size', title_label.size))
+        subtitle_label.bind(size=lambda *x: setattr(subtitle_label, 'text_size', subtitle_label.size))
         v.add_widget(title_label)
-        
-        details_label = Label(text="Apăsați pentru detalii", color=TEXT_SECONDARY, font_size=self._scaled_sp(14), 
-                            halign='left', valign='top')
-        details_label.bind(size=lambda *x: setattr(details_label, 'text_size', details_label.size))
-        v.add_widget(details_label)
-        
+        v.add_widget(subtitle_label)
         card_content.add_widget(v)
         card.add_widget(card_content)
-        
-        # Add card content to a BoxLayout to hold it inside the Carousel
+
         slide = BoxLayout(orientation='vertical')
-        # FIX: Ensure card widget is centered in the slide
         center_anchor = AnchorLayout(anchor_x='center', anchor_y='center', size_hint=(1, 1))
         center_anchor.add_widget(card)
         slide.add_widget(center_anchor)
@@ -111,7 +109,7 @@ class CustomCards(Alignment):
         w = Widget(size_hint=(None, None), size=(s, s))
         col = (1,1,1,0.9) if active else (1,1,1,0.25)
         with w.canvas:
-            w._color_instr = Color(*col) # Store Color instruction for dynamic updates
+            w._color_instr = Color(*col) 
             w._c = Ellipse(size=w.size, pos=w.pos)
         w.bind(size=lambda *_: setattr(w._c, 'size', w.size),
             pos=lambda *_: setattr(w._c, 'pos',  w.pos))
