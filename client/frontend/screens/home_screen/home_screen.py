@@ -43,25 +43,21 @@ CATEGORY_TILE_CONFIG = [
         "screen_name": "personal_docs",
         "title": "Personal Docs",
         "subtitle": "Carte de identitate, Permis auto, etc.",
-        "chips": [("CI", "CI"), ("Permis", "Permis"), ("RCA", "RCA")],
     },
     {
         "screen_name": "vehicul_docs",
         "title": "Vehicul",
         "subtitle": "Asigurări, ITP, Talon auto.",
-        "chips": [("Asigurări", "Asigurări"), ("Talon", "Talon")],
     },
     {
         "screen_name": "transport_docs",
         "title": "Transport",
         "subtitle": "Abonamente și bilete.",
-        "chips": [("Abonamente", "Abonamente"), ("Bilete", "Bilete")],
     },
     {
         "screen_name": "diverse_docs",
         "title": "Diverse",
         "subtitle": "Alte documente digitale.",
-        "chips": [("Biblioteca", "Biblioteca"), (None, "Arhiva")],
     },
 ]
 
@@ -72,8 +68,8 @@ CATEGORY_SCREEN_NAMES = [item["screen_name"] for item in CATEGORY_TILE_CONFIG]
 
 
 # --- New Clickable Category Tile Class ---
-class CategoryTile(ButtonBehavior, AnchorLayout,CustomCards):
-    def __init__(self, sm, screen_name, title, subtitle, chips=None, **kwargs):
+class CategoryTile(ButtonBehavior, AnchorLayout):
+    def __init__(self, sm, screen_name, title, subtitle, **kwargs):
         super().__init__(**kwargs)
         self.sm = sm if hasattr(sm, "has_screen") else None
         self.screen_name = screen_name
@@ -96,42 +92,40 @@ class CategoryTile(ButtonBehavior, AnchorLayout,CustomCards):
 
         inner = BoxLayout(orientation='vertical', padding=[dp(16)]*2, spacing=dp(8)) 
 
-        header = BoxLayout(orientation='vertical', size_hint_y=None, height=dp(75), spacing=dp(4)) 
-        
-        title_label = ScalableLabel(
-            text=f"[b]{title}[/b]", markup=True, color=ACCENT,
-            halign='center', valign='bottom', max_font_size_sp=sp(30), padding_dp=dp(5)
-        )
-        header.add_widget(title_label)
-        
-        header.add_widget(
-            Label(text=subtitle, color=TEXT_SECONDARY,
-                  font_size=sp(15), halign='center', valign='top', size_hint_y=None, height=dp(20))
-        )
-        inner.add_widget(header)
+        header = BoxLayout(orientation='vertical', size_hint=(1, None), spacing=dp(4))
+        header.bind(minimum_height=header.setter("height"))
 
-        # BOTTOM HALF AREA (Chips)
-        if chips:
-            # Container for horizontal centering of the chip group (single row)
-            center_anchor = AnchorLayout(anchor_x='center', size_hint_y=1, padding=[0, dp(5), 0, 0])
-            chip_row = BoxLayout(orientation='horizontal', spacing=dp(10), size_hint=(None, None), height=dp(34))
-            
-            # Manually calculate width based on children to ensure size-to-content works
-            def calculate_chip_row_width(*args):
-                total_width = sum(chip.width for chip in chip_row.children)
-                spacing_width = chip_row.spacing * (len(chip_row.children) - 1)
-                chip_row.width = total_width + spacing_width
-            
-            for ic, txt in chips:
-                chip = self.make_chip(ic, txt)
-                chip.bind(size=calculate_chip_row_width)
-                chip_row.add_widget(chip)
-            
-            calculate_chip_row_width() # Initial width calculation
-            center_anchor.add_widget(chip_row)
-            inner.add_widget(center_anchor)
-        else:
-            inner.add_widget(Widget(size_hint_y=1)) 
+        title_label = ScalableLabel(
+            text=f"[b]{title}[/b]",
+            markup=True,
+            color=ACCENT,
+            halign='center',
+            valign='middle',
+            max_font_size_sp=sp(30),
+            padding_dp=dp(5),
+            size_hint=(1, None)
+        )
+        title_label.bind(size=lambda lbl, size: setattr(lbl, "text_size", (size[0], None)))
+        header.add_widget(title_label)
+
+        subtitle = Label(
+            text=subtitle,
+            color=TEXT_SECONDARY,
+            font_size=sp(15),
+            halign='center',
+            valign='middle',
+            size_hint=(1, None),
+            height=dp(20)
+        )
+        subtitle.bind(
+            size=lambda lbl, size: setattr(lbl, "text_size", (size[0], None)),
+            texture_size=lambda lbl, *_: setattr(lbl, "height", max(lbl.texture_size[1], dp(20)))
+        )
+        header.add_widget(subtitle)
+
+        inner.add_widget(Widget(size_hint_y=1))
+        inner.add_widget(header)
+        inner.add_widget(Widget(size_hint_y=1))
 
         self.add_widget(inner)
 
@@ -258,7 +252,6 @@ class HomeScreen(Screen, CustomButton, CustomCards, Alignment):
                 screen_name=tile["screen_name"],
                 title=tile["title"],
                 subtitle=tile["subtitle"],
-                chips=tile.get("chips"),
             ))
 
         grid_wrap.add_widget(grid)

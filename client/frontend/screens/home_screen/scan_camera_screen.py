@@ -9,6 +9,7 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.camera import Camera
 from kivy.uix.label import Label
 from kivy.uix.screenmanager import Screen
+from kivy.graphics import Color, Line, PushMatrix, PopMatrix, Rotate
 
 from frontend.screens.widgets.custom_alignment import Alignment
 from frontend.screens.widgets.custom_background import GradientBackground
@@ -20,6 +21,38 @@ TEXT_PRIMARY = (0.92, 0.95, 1.00, 1)
 TEXT_SECONDARY = (0.70, 0.76, 0.86, 1)
 ACCENT = (0.25, 0.60, 1.00, 1)
 ACCENT_MUTED = (0.16, 0.20, 0.28, 0.85)
+
+
+class CameraFrame(AnchorLayout):
+    def __init__(self, camera_widget, **kwargs):
+        super().__init__(**kwargs)
+        self.camera_widget = camera_widget
+        self.add_widget(self.camera_widget)
+
+        with self.camera_widget.canvas.before:
+            PushMatrix()
+            self._rotation = Rotate(angle=-90, origin=self.camera_widget.center)
+        with self.camera_widget.canvas.after:
+            PopMatrix()
+
+        self.camera_widget.bind(pos=self._update_rotation_origin, size=self._update_rotation_origin)
+
+        with self.canvas.after:
+            Color(1, 1, 1, 0.45)
+            self._frame = Line(width=dp(2))
+
+        self.bind(size=self._update_frame, pos=self._update_frame)
+
+    def _update_rotation_origin(self, *_):
+        if self._rotation:
+            self._rotation.origin = self.camera_widget.center
+
+    def _update_frame(self, *_):
+        size = min(self.width, self.height) * 0.82
+        size = max(size, 0)
+        x = self.center_x - size / 2
+        y = self.center_y - size / 2
+        self._frame.rectangle = (x, y, size, size)
 
 
 class CameraScanScreen(Screen, CustomLabels, CustomButton, Alignment):
@@ -68,11 +101,17 @@ class CameraScanScreen(Screen, CustomLabels, CustomButton, Alignment):
         instructions.bind(size=lambda lbl, size: setattr(lbl, "text_size", size))
         content.add_widget(instructions)
 
-        preview_holder = AnchorLayout()
+        preview_holder = AnchorLayout(size_hint=(1, 1))
         preview_holder.padding = [0, 0, 0, dp(12)]
-        self.camera_widget = self._build_camera_widget()
-        preview_holder.add_widget(self.camera_widget)
+        self.camera_frame = self._build_camera_widget()
+        preview_holder.add_widget(self.camera_frame)
         content.add_widget(preview_holder)
+
+        self.capture_btn = self.make_rounded_button("Fotografiază", ACCENT, self._capture)
+        self.capture_btn.size_hint = (None, None)
+        self.capture_btn.width = dp(200)
+        self.capture_btn.disabled = not self._camera_available
+        content.add_widget(self.center_row(self.capture_btn, rel_width=0.6, min_w=dp(220), max_w=dp(320), height=dp(46)))
 
         self.status_label = Label(
             text="",
@@ -85,12 +124,6 @@ class CameraScanScreen(Screen, CustomLabels, CustomButton, Alignment):
         )
         self.status_label.bind(size=lambda lbl, size: setattr(lbl, "text_size", size))
         content.add_widget(self.status_label)
-
-        capture_btn = self.make_rounded_button("Fotografiază", ACCENT, self._capture)
-        capture_btn.size_hint = (None, None)
-        capture_btn.width = dp(200)
-        capture_btn.disabled = not self._camera_available
-        content.add_widget(self.center_row(capture_btn, rel_width=0.6, min_w=dp(220), max_w=dp(320), height=dp(46)))
 
     def on_pre_enter(self, *_):
         Clock.schedule_once(lambda *_: self._start_camera(), 0)
@@ -108,7 +141,8 @@ class CameraScanScreen(Screen, CustomLabels, CustomButton, Alignment):
         except Exception as exc:  # noqa: BLE001
             Logger.warning(f"CameraScanScreen: camera unavailable ({exc})")
             self._camera_available = False
-            fallback = AnchorLayout()
+            self.camera_widget = None
+            fallback = AnchorLayout(size_hint=(1, None), height=dp(240))
             message = Label(
                 text="Camera nu este disponibilă pe acest dispozitiv.",
                 color=TEXT_SECONDARY,
@@ -123,12 +157,16 @@ class CameraScanScreen(Screen, CustomLabels, CustomButton, Alignment):
             widget.allow_stretch = True
             widget.keep_ratio = True
             self._camera_available = True
-            return widget
+            self.camera_widget = widget
+            frame = CameraFrame(widget, size_hint=(1, 1))
+            return frame
 
     def _start_camera(self):
         if self._camera_available and self.camera_widget:
             self.camera_widget.play = True
             self.status_label.text = ""
+            if hasattr(self, "capture_btn"):
+                self.capture_btn.disabled = False
 
     def _stop_camera(self):
         if self._camera_available and self.camera_widget:

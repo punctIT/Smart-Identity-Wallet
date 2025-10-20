@@ -47,8 +47,13 @@ class SwipeScreenManager(ScreenManager):
                             self.transition.direction = 'right'
                             self.current = 'home'
                             return True
-
-        
+                else:
+                    for screen in ["personal_docs","transport_docs","vehicul_docs",'diverse_docs','camera_scan']:
+                        if self.current == screen:
+                            self.transition.direction = 'left'
+                            self.current = 'home'
+                            return True
+                            
         return super().on_touch_up(touch)
 
 
