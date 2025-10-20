@@ -40,6 +40,14 @@ class SwipeScreenManager(ScreenManager):
                         self.transition.direction = 'down'
                         self.current = 'login'
                         return True
+            if abs(swipe_vector.x) > self.min_swipe_distance and abs(swipe_vector.x) > abs(swipe_vector.y):
+                if swipe_vector.x > 0:  
+                    for screen in ["personal_docs","transport_docs","vehicul_docs",'diverse_docs','camera_scan']:
+                        if self.current == screen:
+                            self.transition.direction = 'right'
+                            self.current = 'home'
+                            return True
+
         
         return super().on_touch_up(touch)
 
@@ -75,6 +83,7 @@ class SmartIdApp(App):
                 self.root.current = 'register'
             return True
         elif key == 273: 
+            
             if self.root.current == 'register':
                 self.root.transition.direction = 'down'
                 self.root.current = 'login'
