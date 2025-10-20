@@ -5,6 +5,7 @@
 # "GetIdenityCard" => IdentityCard::get(&request, app_state).await,
 # "UpdateIdenityCard" => IdentityCard::update(&request, app_state).await,
 # "GetWalletCards" => PersonalDataManager::get_wallet_data(&request, app_state).await,
+#  "News"=>NewsData::get_latest_news(app_state).await,
 
 class DataRequester:
     def __init__(self):

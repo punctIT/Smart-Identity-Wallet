@@ -35,7 +35,7 @@ class CustomCards(Alignment):
     def create_news_card(self,title_text, subtitle_text, accent_color):
         card_width = self._clamp(Window.width * 0.9, dp(280), dp(700))
         card = self.make_card(card_width, dp(130), radius=dp(22), bg=CARD_DARKER)
-        self._main_card = card # Keep reference for size updates
+        self._main_card = card
         
         card_content = BoxLayout(orientation='horizontal', padding=[dp(16)]*2, spacing=dp(12))
         
@@ -48,24 +48,20 @@ class CustomCards(Alignment):
                 size=lambda *_: setattr(logo._lg_bg, 'size', logo.size))
         card_content.add_widget(logo)
 
-        # Right side (Text content)
-        v = BoxLayout(orientation='vertical', spacing=dp(4))
+        
+        v = BoxLayout(orientation='vertical', spacing=dp(1))
         
         # Set text_size for proper alignment
         subtitle_label = Label(text=subtitle_text, color=TEXT_SECONDARY, font_size=sp(14), 
                             halign='left', valign='bottom')
-        subtitle_label.bind(size=lambda *x: setattr(subtitle_label, 'text_size', subtitle_label.size))
-        v.add_widget(subtitle_label)
+        #subtitle_label.bind(size=lambda *x: setattr(subtitle_label, 'text_size', subtitle_label.size))
+        
         
         title_label = Label(text=f"[b][color={accent_color}]{title_text}[/color][/b]", markup=True, 
-                        color=TEXT_PRIMARY, font_size=sp(18), halign='left', valign='middle')
-        title_label.bind(size=lambda *x: setattr(title_label, 'text_size', title_label.size))
+                        color=TEXT_PRIMARY, font_size=sp(18), halign='left', valign='top')
+        #title_label.bind(size=lambda *x: setattr(title_label, 'text_size', title_label.size))
         v.add_widget(title_label)
-        
-        details_label = Label(text="Apăsați pentru detalii", color=TEXT_SECONDARY, font_size=sp(14), 
-                            halign='left', valign='top')
-        details_label.bind(size=lambda *x: setattr(details_label, 'text_size', details_label.size))
-        v.add_widget(details_label)
+        v.add_widget(subtitle_label)
         
         card_content.add_widget(v)
         card.add_widget(card_content)
