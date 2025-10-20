@@ -160,19 +160,19 @@ class FloatingScanButton(ButtonBehavior, AnchorLayout):
 class HomeScreen(Screen, CustomButton, CustomCards, Alignment):
     def on_enter(self, *args):
         data=self.server.get_specific_data("News")
-        if data['success']==True:
-            
-            news = data['data']['news']
-            if len(news) !=0:
-                self.main_carousel.clear_widgets()
-                self.dots.clear_widgets()
+        if data!=None:
+            if data['success']==True:
+                news = data['data']['news']
+                if len(news) !=0:
+                    self.main_carousel.clear_widgets()
+                    self.dots.clear_widgets()
+                    self.dots.add_widget(Widget())
+                for new in news:
+                    self.dots.add_widget(self.make_dot(0))
+                    self.main_carousel.add_widget(self.create_news_card(
+                        new['Title'], new['Description'], "#FFFFFF"
+                    ))
                 self.dots.add_widget(Widget())
-            for new in news:
-                self.dots.add_widget(self.make_dot(0))
-                self.main_carousel.add_widget(self.create_news_card(
-                    new['Title'], new['Description'], "#FFFFFF"
-                ))
-            self.dots.add_widget(Widget())
        
         
        
