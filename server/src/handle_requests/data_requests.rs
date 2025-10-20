@@ -7,11 +7,11 @@ use chrono::Utc;
 use serde_json::Value;
 use std::sync::Arc;
 
+use crate::handle_requests::info_data_requests::news_data_requests::NewsData;
 use crate::handle_requests::personal_data_requests::identity_card::IdentityCard;
 use crate::handle_requests::personal_data_requests::personal_data_manager::PersonalDataManager;
 use crate::handle_requests::response_handler::ResponseHandler;
 use crate::network::server_https::AppState;
-
 pub struct DataRequestHandler {}
 impl DataRequestHandler {
     pub async fn handle_message(
@@ -24,7 +24,7 @@ impl DataRequestHandler {
             "GetIdenityCard" => IdentityCard::get(&request, app_state).await,
             "UpdateIdenityCard" => IdentityCard::update(&request, app_state).await,
             "GetWalletCards" => PersonalDataManager::get_wallet_data(&request, app_state).await,
-            "nimic" => IdentityCard::get(&request, app_state).await,
+            "News" => NewsData::get_latest_news(app_state).await,
             "identity_verify" => IdentityCard::get(&request, app_state).await,
             _ => DataRequestHandler::unknown().await,
         };
