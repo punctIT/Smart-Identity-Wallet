@@ -6,9 +6,9 @@ import threading
 import urllib3
 
 
-from backend.data_requester import DataRequester
-from backend.auth_requester import AuthRequester
-from backend.ai_data_requester import AI_DataRequester
+from server_requests.data_requester import DataRequester
+from server_requests.auth_requester import AuthRequester
+from server_requests.ai_data_requester import AI_DataRequester
 
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)

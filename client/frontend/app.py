@@ -4,7 +4,7 @@ from kivy.core.window import Window
 from kivy.vector import Vector
 
 
-from backend.server_connect import ServerConnection
+from server_requests.server_connect import ServerConnection
 from frontend.screens.home_screen.home_screen import HomeScreen
 from frontend.screens.login_screen import LoginScreen
 from frontend.screens.home_screen.personal_docs_screen import PersonalDocsScreen
