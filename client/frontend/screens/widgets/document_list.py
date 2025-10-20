@@ -90,15 +90,18 @@ class DocumentListMixin(CustomCards, Alignment):
         self.header_box = BoxLayout(orientation="vertical", size_hint_y=None)
         self.header_box.bind(minimum_height=self.header_box.setter("height"))
 
-        self.title_label = Label(
+        self.title_label = ScalableLabel(
             text=f"[b][color={self.TITLE_COLOR}]{self._title_text}[/color][/b]",
             markup=True,
             color=(1, 1, 1, 1),
             halign="left",
             valign="middle",
+            max_font_size_sp=self._scale_sp(self.TITLE_FONT),
+            padding_dp=self._scale_dp(2),
             size_hint=(1, None),
         )
-        self.title_label.bind(size=lambda lbl, size: setattr(lbl, "text_size", size))
+        self.title_label.bind(size=lambda lbl, size: setattr(lbl, "text_size", (size[0], None)))
+        self._title_height_updater = self._bind_dynamic_height(self.title_label, padding_dp=6)
         self.header_box.add_widget(self.title_label)
 
         self.subtitle_label = Label(
@@ -109,6 +112,7 @@ class DocumentListMixin(CustomCards, Alignment):
             size_hint=(1, None),
         )
         self.subtitle_label.bind(size=lambda lbl, size: setattr(lbl, "text_size", size))
+        self._subtitle_height_updater = self._bind_dynamic_height(self.subtitle_label, padding_dp=4)
         self.header_box.add_widget(self.subtitle_label)
 
         self.root_layout.add_widget(self.header_box)
@@ -134,6 +138,7 @@ class DocumentListMixin(CustomCards, Alignment):
             size_hint=(0.9, None),
         )
         self.empty_state_label.bind(size=lambda lbl, size: setattr(lbl, "text_size", size))
+        self._empty_height_updater = self._bind_dynamic_height(self.empty_state_label, padding_dp=12)
         self.empty_state_anchor.add_widget(self.empty_state_label)
 
         self.bottom_spacer = Widget(size_hint_y=None)
@@ -302,10 +307,14 @@ class DocumentListMixin(CustomCards, Alignment):
         self.root_layout.padding = [self._scale_dp(v) for v in self.ROOT_PADDING]
         self.root_layout.spacing = self._scale_dp(self.ROOT_SPACING)
 
-        self.title_label.font_size = self._scale_sp(self.TITLE_FONT)
+        self.title_label.max_font_size = self._scale_sp(self.TITLE_FONT)
+        self.title_label.padding_dp = self._scale_dp(2)
+        self.title_label._update_font_size()
         self.subtitle_label.font_size = self._scale_sp(self.SUBTITLE_FONT)
         self.title_label.text = f"[b][color={self.TITLE_COLOR}]{self._title_text}[/color][/b]"
         self.subtitle_label.text = self._subtitle_text
+        self._title_height_updater()
+        self._subtitle_height_updater()
 
         self.cards_container.spacing = self._scale_dp(self.CARDS_SPACING)
         self.cards_container.padding = [0, self._scale_dp(6), 0, self._scale_dp(40)]
@@ -313,6 +322,7 @@ class DocumentListMixin(CustomCards, Alignment):
         self.empty_state_anchor.height = self._scale_dp(self.EMPTY_HEIGHT)
         self.empty_state_label.font_size = self._scale_sp(self.SUBTITLE_FONT)
         self.empty_state_label.text = self._empty_text
+        self._empty_height_updater()
 
         self.bottom_spacer.height = self._scale_dp(24)
 

@@ -1,4 +1,5 @@
 from kivy.core.window import Window
+from kivy.clock import Clock
 from kivy.app import App
 from kivy.graphics import Color, RoundedRectangle, Rectangle, Ellipse
 from kivy.graphics.texture import Texture
@@ -74,7 +75,7 @@ class CategoryTile(ButtonBehavior, AnchorLayout):
         self.sm = sm if hasattr(sm, "has_screen") else None
         self.screen_name = screen_name
         self.size_hint = (1, None)
-        self.height = dp(190)
+        self.height = dp(210)
         # --- DRAWING / APPEARANCE LOGIC ---
         with self.canvas.before:
             Color(*CARD_BG)
@@ -95,44 +96,60 @@ class CategoryTile(ButtonBehavior, AnchorLayout):
         header = BoxLayout(orientation='vertical', size_hint=(1, None), spacing=dp(4))
         header.bind(minimum_height=header.setter("height"))
 
-        title_label = ScalableLabel(
+        self.title_label = ScalableLabel(
             text=f"[b]{title}[/b]",
             markup=True,
             color=ACCENT,
             halign='center',
             valign='middle',
-            max_font_size_sp=sp(30),
-            padding_dp=dp(5),
+            max_font_size_sp=sp(26),
+            padding_dp=dp(6),
             size_hint=(1, None)
         )
-        title_label.bind(size=lambda lbl, size: setattr(lbl, "text_size", (size[0], None)))
-        header.add_widget(title_label)
+        self.title_label.bind(size=lambda lbl, size: setattr(lbl, "text_size", (size[0], None)))
+        self.title_label.bind(texture_size=lambda *_: self._update_height())
+        header.add_widget(self.title_label)
 
-        subtitle = Label(
+        self.subtitle_label = Label(
             text=subtitle,
             color=TEXT_SECONDARY,
-            font_size=sp(15),
+            font_size=sp(14),
             halign='center',
             valign='middle',
             size_hint=(1, None),
             height=dp(20)
         )
-        subtitle.bind(
+        def _update_subtitle(_lbl, *_):
+            _lbl.height = max(_lbl.texture_size[1], dp(20))
+            self._update_height()
+
+        self.subtitle_label.bind(
             size=lambda lbl, size: setattr(lbl, "text_size", (size[0], None)),
-            texture_size=lambda lbl, *_: setattr(lbl, "height", max(lbl.texture_size[1], dp(20)))
+            texture_size=_update_subtitle
         )
-        header.add_widget(subtitle)
+        header.add_widget(self.subtitle_label)
 
         inner.add_widget(Widget(size_hint_y=1))
         inner.add_widget(header)
         inner.add_widget(Widget(size_hint_y=1))
 
         self.add_widget(inner)
+        self.bind(width=lambda *_: self._update_height())
+        Clock.schedule_once(lambda *_: self._update_height(), 0)
 
     # --- CLICK BEHAVIOR ---
     def on_release(self):
         print(self.screen_name)
         self.sm.current=self.screen_name
+
+    def _update_height(self, *_):
+        self.title_label.texture_update()
+        self.subtitle_label.texture_update()
+        inner_height = (
+            dp(32) + self.title_label.texture_size[1] + self.subtitle_label.texture_size[1]
+        )
+        target = max(dp(190), inner_height)
+        self.height = target
 
 
 class FloatingScanButton(ButtonBehavior, AnchorLayout):

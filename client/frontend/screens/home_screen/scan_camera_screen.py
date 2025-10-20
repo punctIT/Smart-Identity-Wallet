@@ -10,6 +10,8 @@ from kivy.uix.camera import Camera
 from kivy.uix.label import Label
 from kivy.uix.screenmanager import Screen
 from kivy.graphics import Color, Line, PushMatrix, PopMatrix, Rotate
+from kivy.core.window import Window
+import math
 
 from frontend.screens.widgets.custom_alignment import Alignment
 from frontend.screens.widgets.custom_background import GradientBackground
@@ -48,11 +50,24 @@ class CameraFrame(AnchorLayout):
             self._rotation.origin = self.camera_widget.center
 
     def _update_frame(self, *_):
-        size = min(self.width, self.height) * 0.82
-        size = max(size, 0)
-        x = self.center_x - size / 2
-        y = self.center_y - size / 2
-        self._frame.rectangle = (x, y, size, size)
+        if not self.width or not self.height:
+            return
+        padding_factor = 0.86
+        available_width = self.width * padding_factor
+        available_height = self.height * padding_factor
+        a4_ratio = math.sqrt(2)  # height = width * sqrt(2) for portrait A4
+
+        height_candidate = available_width * a4_ratio
+        if height_candidate <= available_height:
+            frame_width = available_width
+            frame_height = height_candidate
+        else:
+            frame_height = available_height
+            frame_width = frame_height / a4_ratio
+
+        x = self.center_x - frame_width / 2
+        y = self.center_y - frame_height / 2
+        self._frame.rectangle = (x, y, frame_width, frame_height)
 
 
 class CameraScanScreen(Screen, CustomLabels, CustomButton, Alignment):
@@ -62,6 +77,7 @@ class CameraScanScreen(Screen, CustomLabels, CustomButton, Alignment):
         self.camera_widget = None
         self._camera_available = False
         self.status_label = None
+        self.preview_holder = None
 
         self.add_widget(GradientBackground())
 
@@ -98,14 +114,20 @@ class CameraScanScreen(Screen, CustomLabels, CustomButton, Alignment):
             size_hint_y=None,
             height=dp(38)
         )
-        instructions.bind(size=lambda lbl, size: setattr(lbl, "text_size", size))
+        instructions.bind(
+            size=lambda lbl, size: setattr(lbl, "text_size", size),
+            texture_size=lambda lbl, *_: setattr(lbl, "height", lbl.texture_size[1] + dp(6))
+        )
         content.add_widget(instructions)
 
-        preview_holder = AnchorLayout(size_hint=(1, 1))
-        preview_holder.padding = [0, 0, 0, dp(12)]
+        self.preview_holder = AnchorLayout(size_hint=(1, None))
+        self.preview_holder.padding = [0, 0, 0, dp(12)]
+        self.preview_holder.height = Window.height * 0.5
+        Window.bind(size=lambda *_: self._update_preview_height())
         self.camera_frame = self._build_camera_widget()
-        preview_holder.add_widget(self.camera_frame)
-        content.add_widget(preview_holder)
+        self.preview_holder.add_widget(self.camera_frame)
+        content.add_widget(self.preview_holder)
+        self._update_preview_height()
 
         self.capture_btn = self.make_rounded_button("Fotografiază", ACCENT, self._capture)
         self.capture_btn.size_hint = (None, None)
@@ -142,7 +164,7 @@ class CameraScanScreen(Screen, CustomLabels, CustomButton, Alignment):
             Logger.warning(f"CameraScanScreen: camera unavailable ({exc})")
             self._camera_available = False
             self.camera_widget = None
-            fallback = AnchorLayout(size_hint=(1, None), height=dp(240))
+            fallback = AnchorLayout(size_hint=(1, None), height=dp(260))
             message = Label(
                 text="Camera nu este disponibilă pe acest dispozitiv.",
                 color=TEXT_SECONDARY,
@@ -167,6 +189,8 @@ class CameraScanScreen(Screen, CustomLabels, CustomButton, Alignment):
             self.status_label.text = ""
             if hasattr(self, "capture_btn"):
                 self.capture_btn.disabled = False
+        else:
+            self.status_label.text = "Camera nu este disponibilă pe acest dispozitiv."
 
     def _stop_camera(self):
         if self._camera_available and self.camera_widget:
@@ -200,3 +224,9 @@ class CameraScanScreen(Screen, CustomLabels, CustomButton, Alignment):
             self.manager.current = "home"
             if transition and previous_direction:
                 transition.direction = previous_direction
+
+    def _update_preview_height(self):
+        if not self.preview_holder:
+            return
+        target = max(Window.height * 0.55, dp(260))
+        self.preview_holder.height = target
