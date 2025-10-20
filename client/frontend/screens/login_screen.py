@@ -186,7 +186,7 @@ class LoginScreen(Screen,CustomLabels,CustomButton,CustomInput,Alignment):
             self._set_error(self.err_user, "Server connection unavailable.")
             return
 
-        response = self.server.send_login(username, password)
+        response = self.server.send_login(self.username_input.text, self.password_input.text)
         if response:
             if self.manager and self.manager.has_screen('home'):
                 home = self.manager.get_screen('home')
