@@ -75,6 +75,7 @@ class CategoryTile(ButtonBehavior, AnchorLayout):
         self.screen_name = screen_name
         self.size_hint = (1, None)
         self.height = dp(190)
+        
         # --- DRAWING / APPEARANCE LOGIC ---
         with self.canvas.before:
             Color(*CARD_BG)
@@ -157,13 +158,30 @@ class FloatingScanButton(ButtonBehavior, AnchorLayout):
             self._on_activate()
     
 class HomeScreen(Screen, CustomButton, CustomCards, Alignment):
+    def on_enter(self, *args):
+        data=self.server.get_specific_data("News")
+        if data['success']==True:
+            
+            news = data['data']['news']
+            if len(news) !=0:
+                self.main_carousel.clear_widgets()
+                self.dots.clear_widgets()
+                self.dots.add_widget(Widget())
+            for new in news:
+                self.dots.add_widget(self.make_dot(0))
+                self.main_carousel.add_widget(self.create_news_card(
+                    new['Title'], new['Description'], "#FFFFFF"
+                ))
+            self.dots.add_widget(Widget())
+       
+        
+       
     def __init__(self, sm=None, server=None, **kwargs):
         super().__init__(name="home", **kwargs)
         self.server = server
         self.user_info = {}
         self.sm = sm if hasattr(sm, "has_screen") else None 
         self._back_binding = False
-       
         self.add_widget(GradientBackground())
         root = BoxLayout(orientation='vertical', padding=[dp(16), dp(4), dp(16), dp(4)], spacing=dp(8))
 
@@ -179,7 +197,7 @@ class HomeScreen(Screen, CustomButton, CustomCards, Alignment):
                       halign='left', valign='middle', color=TEXT_PRIMARY, font_size=sp(32))
         title.bind(size=lambda l, s: setattr(l, 'text_size', s))
         
-        main_container = BoxLayout(
+        self.main_container = BoxLayout(
             orientation='vertical', 
             size_hint_y=0.25,  # 25% pentru main content
             spacing=dp(10)
@@ -193,7 +211,7 @@ class HomeScreen(Screen, CustomButton, CustomCards, Alignment):
 
      
       
-        main_container.bind(minimum_height=main_container.setter('height'))
+        self.main_container.bind(minimum_height=self.main_container.setter('height'))
 
 
        
@@ -205,29 +223,22 @@ class HomeScreen(Screen, CustomButton, CustomCards, Alignment):
             size_hint=(1, 1)
         )
 
-        # Add multiple slides to the carousel
         self.main_carousel.add_widget(self.create_news_card(
-            "Noutăți Zone ITP", "Verificați reglementările noi de azi.", "#FFFFFF"
-        ))
-        self.main_carousel.add_widget(self.create_news_card(
-            "Abonament Zonal (Exp)", "Valabil până la 31.10.25 11:59", ACCENT_YELLOW
-        ))
-        self.main_carousel.add_widget(self.create_news_card(
-            "Anunțuri Trafic", "Restricții de circulație și devieri.", "#FF6666"
+                "Nimic nou", "nu exista noutati", "#FFFFFF"
         ))
 
         carousel_row.add_widget(self.main_carousel)
-        main_container.add_widget(carousel_row)  # Adaugă în container
+        self.main_container.add_widget(carousel_row)  # Adaugă în container
 
-        dots = BoxLayout(size_hint_y=None, height=dp(14), spacing=dp(6), padding=[0, 0, 0, dp(4)])
+        self.dots = BoxLayout(size_hint_y=None, height=dp(14), spacing=dp(6), padding=[0, 0, 0, dp(4)])
         self.dot_widgets = [self.make_dot(i == 0) for i in range(len(self.main_carousel.children)+1)]
 
-        dots.add_widget(Widget())
+        self.dots.add_widget(Widget())
         for dot in self.dot_widgets:
-            dots.add_widget(dot)
-        dots.add_widget(Widget())
+            self.dots.add_widget(dot)
+        self.dots.add_widget(Widget())
 
-        main_container.add_widget(dots)  # Adaugă în container
+        self.main_container.add_widget(self.dots) 
 
         def update_dots(instance, value):
             current_index = self.main_carousel.index
@@ -236,8 +247,8 @@ class HomeScreen(Screen, CustomButton, CustomCards, Alignment):
                 dot._color_instr.rgba = target_color
 
         self.main_carousel.bind(index=update_dots)
-        main_container.size_hint_y = 0.2 
-        root.add_widget(main_container)
+        self.main_container.size_hint_y = 0.2 
+        root.add_widget(self.main_container)
 
        
         grid_wrap = BoxLayout(orientation='vertical', size_hint_y=None, padding=[0, dp(6), 0, dp(80)])

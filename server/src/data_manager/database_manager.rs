@@ -105,7 +105,17 @@ impl DBManager {
                 .to_string(),
         )
         .await?;
-
+        self.execute(
+            "
+            CREATE TABLE IF NOT EXISTS news (
+                id SERIAL PRIMARY KEY,
+                data_col DATE NOT NULL,
+                json_col TEXT NOT NULL
+            );
+            "
+            .to_string(),
+        )
+        .await?;
         Ok(())
     }
     pub async fn execute(&self, query: String) -> Result<(), Error> {
@@ -115,5 +125,20 @@ impl DBManager {
     pub async fn select(&self, query: String, value: &'static str) -> Result<String, Error> {
         let row = self.client.query_one(query.as_str(), &[]).await?;
         Ok(row.get(value))
+    }
+    pub async fn select_all(
+        &self,
+        query: String,
+        column: &'static str,
+    ) -> Result<Vec<String>, Error> {
+        let rows = self.client.query(query.as_str(), &[]).await?;
+        let mut results = Vec::new();
+
+        for row in rows {
+            let value: String = row.get(column);
+            results.push(value);
+        }
+
+        Ok(results)
     }
 }
