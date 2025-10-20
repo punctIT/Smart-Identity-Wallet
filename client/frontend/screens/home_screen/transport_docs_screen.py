@@ -1,32 +1,30 @@
 from kivy.uix.screenmanager import Screen
-from kivy.uix.anchorlayout import AnchorLayout
-from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.label import Label
-from kivy.graphics import Color, RoundedRectangle, Rectangle
-from kivy.graphics.texture import Texture
-from kivy.uix.widget import Widget
-from kivy.core.window import Window
-from kivy.metrics import dp, sp 
 
-
-from frontend.screens.widgets.custom_background import GradientBackground
 from frontend.screens.widgets.custom_buttons import CustomButton
 from frontend.screens.widgets.custom_input import CustomInput
-from frontend.screens.widgets.custom_label import CustomLabels,LinkLabel 
-from frontend.screens.widgets.custom_alignment import Alignment
+from frontend.screens.widgets.custom_label import CustomLabels
+from frontend.screens.widgets.document_list import DocumentListMixin
 
 
+class TransportDocsScreen(
+    DocumentListMixin,
+    Screen,
+    CustomLabels,
+    CustomButton,
+    CustomInput,
+):
+    TITLE_TEXT = "Documente transport"
+    SUBTITLE_TEXT = "Abonamentele și biletele active sunt afișate aici."
+    EMPTY_TEXT = "Nu există documente de transport momentan."
 
-
-class TransportDocsScreen(Screen,CustomLabels,CustomButton,CustomInput,Alignment):
     def __init__(self, server=None, **kwargs):
-        super().__init__(name='transport_docs', **kwargs)
-        self.server = server
-
-        # Background gradient
-        self.bg = GradientBackground()
-        self.add_widget(self.bg)
-        title = Label(
-            text="transport"
+        Screen.__init__(self, name="transport_docs", **kwargs)
+        self.setup_document_screen(
+            server=server,
+            title_text=self.TITLE_TEXT,
+            subtitle_text=self.SUBTITLE_TEXT,
+            empty_text=self.EMPTY_TEXT,
         )
-        self.add_widget(title)
+
+
+__all__ = ["TransportDocsScreen"]
