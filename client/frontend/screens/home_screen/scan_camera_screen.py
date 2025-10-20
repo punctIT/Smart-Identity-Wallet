@@ -48,11 +48,14 @@ class CameraFrame(AnchorLayout):
             self._rotation.origin = self.camera_widget.center
 
     def _update_frame(self, *_):
-        size = min(self.width, self.height) * 0.82
-        size = max(size, 0)
-        x = self.center_x - size / 2
-        y = self.center_y - size / 2
-        self._frame.rectangle = (x, y, size, size)
+        aspect_ratio = 1.58  # width/height ratio approximating an ID card
+        available_width = max(self.width * 0.8, 0)
+        available_height = max(self.height * 0.8, 0)
+        width = min(available_width, available_height * aspect_ratio)
+        height = width / aspect_ratio if aspect_ratio else 0
+        x = self.center_x - width / 2
+        y = self.center_y - height / 2
+        self._frame.rectangle = (x, y, width, height)
 
 
 class CameraScanScreen(Screen, CustomLabels, CustomButton, Alignment):
