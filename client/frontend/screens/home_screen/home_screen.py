@@ -106,15 +106,8 @@ class CategoryTile(ButtonBehavior, AnchorLayout):
             color=ACCENT,
             halign='center',
             valign='middle',
-<<<<<<< Updated upstream
             max_font_size_sp=sp(30),
             padding_dp=dp(5),
-=======
-            max_font_size_sp=sp(64 if is_single_word else 52),
-            min_font_size_sp=sp(22 if is_single_word else 20),
-            padding_dp=dp(2 if is_single_word else 6),
-            enforce_single_line=is_single_word,
->>>>>>> Stashed changes
             size_hint=(1, None)
         )
         title_label.bind(size=lambda lbl, size: setattr(lbl, "text_size", (size[0], None)))

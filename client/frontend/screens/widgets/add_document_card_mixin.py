@@ -1,6 +1,9 @@
+from kivy.metrics import dp
+from kivy.uix.anchorlayout import AnchorLayout
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
 from kivy.uix.label import Label
+from kivy.graphics import Color, Ellipse
 
 
 class AddDocumentCardMixin:
@@ -21,6 +24,8 @@ class AddDocumentCardMixin:
             self._compute_card_width(),
             base_height,
             radius=self.CARD_RADIUS,
+            bg=(0.18, 0.21, 0.28, 1),
+            stroke=(1, 1, 1, 0.08),
         )
 
         content = BoxLayout(
@@ -34,16 +39,27 @@ class AddDocumentCardMixin:
             spacing=self._scale_dp(8),
         )
 
+        icon_wrapper = AnchorLayout(size_hint=(1, None))
+        badge = AnchorLayout(size_hint=(None, None))
+        with badge.canvas.before:
+            Color(0.27, 0.46, 0.96, 1)
+            badge._circle = Ellipse(pos=badge.pos, size=badge.size)
+        badge.bind(
+            pos=lambda *_: setattr(badge._circle, "pos", badge.pos),
+            size=lambda *_: setattr(badge._circle, "size", badge.size),
+        )
         icon_label = Label(
             text=self.add_card_icon,
-            color=(0.92, 0.95, 1.00, 1),
-            font_size=self._scale_sp(46),
+            color=(0.96, 0.97, 1, 1),
+            font_size=self._scale_sp(42),
             halign="center",
             valign="middle",
-            size_hint=(1, None),
+            size_hint=(1, 1),
         )
-        icon_label.bind(size=lambda lbl, size: setattr(lbl, "text_size", (size[0], None)))
-        icon_height_updater = self._bind_dynamic_height(icon_label, padding_dp=10)
+        icon_label.bind(size=lambda lbl, size: setattr(lbl, "text_size", size))
+        badge.add_widget(icon_label)
+        icon_wrapper.add_widget(badge)
+        content.add_widget(icon_wrapper)
 
         caption_label = Label(
             text=self.add_card_caption,
@@ -57,10 +73,12 @@ class AddDocumentCardMixin:
         caption_height_updater = self._bind_dynamic_height(caption_label, padding_dp=6)
 
         def _update_fonts(*_):
-            icon_label.font_size = self._scale_sp(46)
+            badge_size = self._scale_dp(66)
+            badge.size = (badge_size, badge_size)
+            icon_wrapper.height = badge_size + self._scale_dp(12)
+            icon_label.font_size = self._scale_sp(42)
             caption_label.font_size = self._scale_sp(self.SUBTITLE_CARD_FONT)
 
-        content.add_widget(icon_label)
         content.add_widget(caption_label)
         card.add_widget(content)
 
@@ -89,7 +107,7 @@ class AddDocumentCardMixin:
             subtitle=None,
             meta=[],
             base_height=base_height,
-            height_updaters=[_update_fonts, icon_height_updater, caption_height_updater],
+            height_updaters=[_update_fonts, caption_height_updater],
         )
 
         _update_fonts()
