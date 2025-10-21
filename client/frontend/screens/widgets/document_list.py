@@ -80,9 +80,14 @@ class DocumentListMixin(CustomCards, Alignment):
     # Layout construction helpers
     # ---------------------------------------------------------------------
     def _build_ui(self) -> None:
+        base_padding = [self._scale_dp(v) for v in self.ROOT_PADDING]
+        if hasattr(self, "_safe_top_padding"):
+            base_padding[1] = self._safe_top_padding(self.ROOT_PADDING[1])
+            base_padding[3] = self._safe_bottom_padding(self.ROOT_PADDING[3])
+
         self.root_layout = BoxLayout(
             orientation="vertical",
-            padding=[self._scale_dp(v) for v in self.ROOT_PADDING],
+            padding=base_padding,
             spacing=self._scale_dp(self.ROOT_SPACING),
         )
         self.add_widget(self.root_layout)
@@ -334,7 +339,11 @@ class DocumentListMixin(CustomCards, Alignment):
     # Scaling helpers
     # ------------------------------------------------------------------
     def _apply_scale(self) -> None:
-        self.root_layout.padding = [self._scale_dp(v) for v in self.ROOT_PADDING]
+        base_padding = [self._scale_dp(v) for v in self.ROOT_PADDING]
+        if hasattr(self, "_safe_top_padding"):
+            base_padding[1] = self._safe_top_padding(self.ROOT_PADDING[1])
+            base_padding[3] = self._safe_bottom_padding(self.ROOT_PADDING[3])
+        self.root_layout.padding = base_padding
         self.root_layout.spacing = self._scale_dp(self.ROOT_SPACING)
 
         self.title_label.font_size = self._scale_sp(self.TITLE_FONT)
@@ -342,7 +351,8 @@ class DocumentListMixin(CustomCards, Alignment):
         self.title_label.text = f"[b][color={self.TITLE_COLOR}]{self._title_text}[/color][/b]"
         self.subtitle_label.text = self._subtitle_text
 
-        bottom_padding = self._scale_dp(self.CARDS_SPACING * 2) + self._safe_bottom_padding(24)
+        safe_bottom = getattr(self, "_safe_bottom_padding", lambda *_: dp(0))(24)
+        bottom_padding = self._scale_dp(self.CARDS_SPACING * 2) + safe_bottom
         self.cards_container.spacing = self._scale_dp(self.CARDS_SPACING)
         self.cards_container.padding = [0, self._scale_dp(6), 0, bottom_padding]
 
