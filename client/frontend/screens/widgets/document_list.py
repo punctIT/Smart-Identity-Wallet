@@ -328,8 +328,15 @@ class DocumentListMixin(CustomCards, Alignment):
 
     def _bind_dynamic_height(self, label: Label, padding_dp: int):
         def _update_height(*_):
-            label.texture_update()
-            label.height = label.texture_size[1] + self._scale_dp(padding_dp)
+            if getattr(label, "_auto_height_lock", False):
+                return
+            label._auto_height_lock = True
+            try:
+                if label.texture is None:
+                    label.texture_update()
+                label.height = label.texture_size[1] + self._scale_dp(padding_dp)
+            finally:
+                label._auto_height_lock = False
 
         label.bind(texture_size=_update_height)
         _update_height()
