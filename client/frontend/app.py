@@ -2,6 +2,7 @@ from kivy.app import App
 from kivy.uix.screenmanager import ScreenManager, SlideTransition
 from kivy.core.window import Window
 from kivy.vector import Vector
+from kivy.utils import platform
 
 
 from server_requests.server_connect import ServerConnection
@@ -14,6 +15,9 @@ from frontend.screens.home_screen.diverse_docs_screen import DiverseDocsScreen
 from frontend.screens.home_screen.scan_camera_screen import CameraScanScreen
 from frontend.screens.register_screen import RegisterScreen
 from frontend.screens.splash_screen import SplashScreen
+
+if platform == "android":
+    from android.permissions import request_permissions, Permission
 
 class SwipeScreenManager(ScreenManager):
     def __init__(self, **kwargs):
@@ -80,6 +84,15 @@ class SmartIdApp(App):
         Window.bind(on_key_down=self._on_key_down)
         
         return sm
+    
+    def on_start(self):
+        super().on_start()
+        if platform == "android":
+            request_permissions([
+                Permission.CAMERA,
+                Permission.READ_EXTERNAL_STORAGE,
+                Permission.WRITE_EXTERNAL_STORAGE,
+            ])
     
     def _on_key_down(self, window, key, scancode, codepoint, modifier):
         if key == 274: 
