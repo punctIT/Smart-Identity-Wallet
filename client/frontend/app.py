@@ -15,6 +15,7 @@ from frontend.screens.home_screen.diverse_docs_screen import DiverseDocsScreen
 from frontend.screens.home_screen.scan_camera_screen import CameraScanScreen
 from frontend.screens.register_screen import RegisterScreen
 from frontend.screens.splash_screen import SplashScreen
+from frontend.screens.server_setup_screen import ServerSetupScreen
 from frontend.screens.chat_screens.chat_screen import ChatScreen
 
 
@@ -70,6 +71,7 @@ class SmartIdApp(App):
         self.server = ServerConnection(size_hint_y=0.8)
                 
         sm = SwipeScreenManager()
+        sm.add_widget(ServerSetupScreen(self.server))
         sm.add_widget(SplashScreen(self.server))
         sm.add_widget(LoginScreen(self.server))
         sm.add_widget(RegisterScreen(self.server))
@@ -81,7 +83,7 @@ class SmartIdApp(App):
         sm.add_widget(CameraScanScreen(self.server))
         sm.add_widget(ChatScreen(self.server))
 
-        sm.current = 'first'
+        sm.current = 'server_setup'
         
         Window.bind(on_key_down=self._on_key_down)
         

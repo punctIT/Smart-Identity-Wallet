@@ -22,8 +22,11 @@ class ServerConnection(Label,DataRequester,AuthRequester,AI_DataRequester):
         self.user_id=""
         self.server_url="https://127.0.0.1:8443"
         self.session.verify = False
-    def set_server_url(self,URL)->"ServerConnection":
-        self.set_server_url=URL
+    def set_server_url(self, url: str) -> "ServerConnection":
+        """Update the base URL that subsequent requests should hit."""
+        if not isinstance(url, str):
+            raise TypeError("Server URL must be a string.")
+        self.server_url = url.rstrip("/")
         return self
     def connect(self):
         try:
