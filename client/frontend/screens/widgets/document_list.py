@@ -147,6 +147,9 @@ class DocumentListMixin(CustomCards, Alignment):
         if not self.documents:
             self.empty_state_anchor.height = self._scale_dp(self.EMPTY_HEIGHT)
             self.cards_container.add_widget(self.empty_state_anchor)
+            for extra_row in self._get_additional_cards():
+                if extra_row:
+                    self.cards_container.add_widget(extra_row)
             self.cards_container.add_widget(self.bottom_spacer)
             self._apply_scale()
             return
@@ -154,6 +157,10 @@ class DocumentListMixin(CustomCards, Alignment):
         for doc in self.documents:
             card_row = self._create_document_card(doc)
             self.cards_container.add_widget(card_row)
+
+        for extra_row in self._get_additional_cards():
+            if extra_row:
+                self.cards_container.add_widget(extra_row)
 
         self.cards_container.add_widget(self.bottom_spacer)
         self._apply_scale()
@@ -246,24 +253,50 @@ class DocumentListMixin(CustomCards, Alignment):
         row.padding = [0, self._scale_dp(4), 0, self._scale_dp(4)]
         card.bind(height=lambda *_: setattr(row, "height", card.height + self._scale_dp(8)))
 
+        self._register_card_entry(
+            row=row,
+            card=card,
+            content=content,
+            title=title_label,
+            subtitle=subtitle_label,
+            meta=meta_labels,
+            base_height=base_height,
+            height_updaters=[
+                updater
+                for updater in (title_updater, subtitle_updater, *meta_updaters)
+                if updater
+            ],
+        )
+
+        return row
+
+    def _get_additional_cards(self) -> Sequence[AnchorLayout]:
+        return []
+
+    def _register_card_entry(
+        self,
+        *,
+        row: AnchorLayout,
+        card: AnchorLayout,
+        content: Optional[Widget] = None,
+        title: Optional[Widget] = None,
+        subtitle: Optional[Widget] = None,
+        meta: Optional[Sequence[Widget]] = None,
+        base_height: float = 0,
+        height_updaters: Optional[Sequence] = None,
+    ) -> None:
         self._doc_widgets.append(
             {
                 "row": row,
                 "card": card,
                 "content": content,
-                "title": title_label,
-                "subtitle": subtitle_label,
-                "meta": meta_labels,
+                "title": title,
+                "subtitle": subtitle,
+                "meta": list(meta or []),
                 "base_height": base_height,
-                "height_updaters": [
-                    updater
-                    for updater in (title_updater, subtitle_updater, *meta_updaters)
-                    if updater
-                ],
+                "height_updaters": list(height_updaters or []),
             }
         )
-
-        return row
 
     def _collect_meta_lines(self, doc: dict) -> Sequence[str]:
         meta = doc.get("meta") or doc.get("details") or doc.get("metadata")
@@ -335,9 +368,14 @@ class DocumentListMixin(CustomCards, Alignment):
             content.spacing = self._scale_dp(8)
 
             title_label = entry["title"]
-            title_label.max_font_size = self._scale_sp(self.TITLE_CARD_FONT)
-            title_label.padding_dp = self._scale_dp(4)
-            title_label._update_font_size()
+            if title_label:
+                if hasattr(title_label, "max_font_size"):
+                    title_label.max_font_size = self._scale_sp(self.TITLE_CARD_FONT)
+                if hasattr(title_label, "padding_dp"):
+                    title_label.padding_dp = self._scale_dp(4)
+                update_fn = getattr(title_label, "_update_font_size", None)
+                if callable(update_fn):
+                    update_fn()
 
             subtitle_label = entry["subtitle"]
             if subtitle_label:

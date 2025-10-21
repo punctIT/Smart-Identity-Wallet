@@ -1,5 +1,6 @@
 from kivy.uix.screenmanager import Screen
 
+from frontend.screens.widgets.add_document_card_mixin import AddDocumentCardMixin
 from frontend.screens.widgets.custom_buttons import CustomButton
 from frontend.screens.widgets.custom_input import CustomInput
 from frontend.screens.widgets.custom_label import CustomLabels
@@ -7,6 +8,7 @@ from frontend.screens.widgets.document_list import DocumentListMixin
 
 
 class PersonalDocsScreen(
+    AddDocumentCardMixin,
     DocumentListMixin,
     Screen,
     CustomLabels,

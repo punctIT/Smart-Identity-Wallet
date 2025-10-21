@@ -193,7 +193,7 @@ class HomeScreen(Screen, CustomButton, CustomCards, Alignment):
             size_hint_y=0.25,  # 25% pentru main content
             spacing=dp(2)
         )
-        title = Label(text='[b][color=#33A3FF]smart id[/color][/b]', markup=True,
+        title = Label(text='[b][color=#33A3FF]Smart ID Wallet[/color][/b]', markup=True,
                       halign='left', valign='middle', color=TEXT_PRIMARY, font_size=sp(32))
         title.bind(size=lambda l, s: setattr(l, 'text_size', s))
         
