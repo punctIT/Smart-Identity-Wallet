@@ -116,10 +116,12 @@ class DocumentListMixin(CustomCards, Alignment):
         self.scroll_view = ScrollView(size_hint=(1, 1))
         self.root_layout.add_widget(self.scroll_view)
 
+        bottom_padding = self._scale_dp(self.CARDS_SPACING * 2) + self._safe_bottom_padding(24)
+
         self.cards_container = BoxLayout(
             orientation="vertical",
             spacing=self._scale_dp(self.CARDS_SPACING),
-            padding=[0, self._scale_dp(6), 0, self._scale_dp(40)],
+            padding=[0, self._scale_dp(6), 0, bottom_padding],
             size_hint_y=None,
         )
         self.cards_container.bind(minimum_height=self.cards_container.setter("height"))
@@ -340,8 +342,9 @@ class DocumentListMixin(CustomCards, Alignment):
         self.title_label.text = f"[b][color={self.TITLE_COLOR}]{self._title_text}[/color][/b]"
         self.subtitle_label.text = self._subtitle_text
 
+        bottom_padding = self._scale_dp(self.CARDS_SPACING * 2) + self._safe_bottom_padding(24)
         self.cards_container.spacing = self._scale_dp(self.CARDS_SPACING)
-        self.cards_container.padding = [0, self._scale_dp(6), 0, self._scale_dp(40)]
+        self.cards_container.padding = [0, self._scale_dp(6), 0, bottom_padding]
 
         self.empty_state_anchor.height = self._scale_dp(self.EMPTY_HEIGHT)
         self.empty_state_label.font_size = self._scale_sp(self.SUBTITLE_FONT)

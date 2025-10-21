@@ -30,6 +30,7 @@ class CustomLabels:
         return lbl
     
 
+<<<<<<< Updated upstream
 class ScalableLabel(Label):
     """A Label that scales its font size based on the widget's current width to prevent text overflow."""
     def __init__(self, max_font_size_sp=sp(30), padding_dp=dp(10), **kwargs):
@@ -66,3 +67,73 @@ class ScalableLabel(Label):
             
         # Crucial step to ensure the text wraps/aligns correctly
         self.text_size = (self.width, None) 
+=======
+class ScalableLabel(Label):
+    """A Label that scales its font size based on the widget's current width to prevent overflow."""
+
+    def __init__(
+        self,
+        max_font_size_sp=sp(30),
+        min_font_size_sp=sp(15),
+        padding_dp=dp(10),
+        enforce_single_line=False,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.max_font_size = max_font_size_sp
+        self.min_font_size = min_font_size_sp
+        self.padding_dp = padding_dp
+        self.enforce_single_line = enforce_single_line
+        self.bind(size=self._update_font_size, text=self._update_font_size)
+
+    def _update_font_size(self, *args):
+        if not self.text or self.width == 0:
+            return
+
+        # 1. Use the max font size for initial texture calculation
+        self.font_size = self.max_font_size
+        self.texture_update()
+
+        # 2. Calculate the required width for the text at max size
+        text_width_at_max_size = self.texture_size[0]
+
+        # 3. Calculate the available width inside the container (Tile width - Inner Padding)
+        available_width = self.width - (self.padding_dp * 2)
+        if available_width <= 0 or text_width_at_max_size == 0:
+            return
+
+        if text_width_at_max_size > available_width:
+            # Calculate the necessary scale factor
+            scale_factor = available_width / text_width_at_max_size
+
+            # Apply the scale factor to the max font size
+            new_size = self.max_font_size * scale_factor
+
+            # Set the new font size, ensuring a minimum readable size
+            target_size = max(self.min_font_size, new_size)
+        else:
+            target_size = self.max_font_size
+
+        self.font_size = target_size
+        self.texture_update()
+
+        if self.texture_size[0] > available_width and self.font_size > self.min_font_size:
+            step = sp(1)
+            current = self.font_size
+            while current > self.min_font_size and self.texture_size[0] > available_width:
+                current = max(self.min_font_size, current - step)
+                self.font_size = current
+                self.texture_update()
+
+        if self.enforce_single_line:
+            desired_height = self.font_size * 1.35
+            step = sp(1)
+            current = self.font_size
+            while current > self.min_font_size and self.texture_size[1] > desired_height:
+                current = max(self.min_font_size, current - step)
+                self.font_size = current
+                self.texture_update()
+
+        # Crucial step to ensure the text wraps/aligns correctly
+        self.text_size = (self.width, None)
+>>>>>>> Stashed changes
