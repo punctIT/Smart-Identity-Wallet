@@ -293,8 +293,28 @@ class HomeScreen(Screen, CustomButton, CustomCards, Alignment):
 
 
         Window.bind(size=lambda *_: _update_card())
-        _update_card() # Initial call
+        _update_card() 
+        
         self.bind(manager=self._bind_manager)
+        floating_btn_container = AnchorLayout(
+            anchor_x='right', anchor_y='bottom',
+            size_hint=(None, None), 
+            size=(dp(100), dp(140)),  # Lățime fixă pentru container
+            pos_hint={'right': 0.94, 'y': 0.09}  # Poziționare directă
+        )
+
+        def floating_btn_action():
+            self.sm.current='chat'
+
+        floating_btn = FloatingScanButton(
+            text="[b]+[/b]",
+            text_color=(0, 0, 0, 1),
+            bg_color=ACCENT_YELLOW,
+            on_activate=floating_btn_action
+        )
+
+        floating_btn_container.add_widget(floating_btn)
+        self.add_widget(floating_btn_container)
 
     def on_pre_enter(self, *_):
         if not self._back_binding:
@@ -338,13 +358,7 @@ class HomeScreen(Screen, CustomButton, CustomCards, Alignment):
         bar.add_widget(Widget()) 
 
         right = AnchorLayout(size_hint_x=0.4)
-        def go_chat():
-            self.sm.current='chat'
-        chat=LinkLabel(text="[b][color=#33A3FF]AI CHAT BOT[/color][/b]", markup=True,
-                               font_size=sp(18), color=ACCENT)
-        chat.bind(on_press=lambda *_: go_chat())
-        right.add_widget(chat)
-       
+        
         bar.add_widget(right)
 
         layer.add_widget(bar)
