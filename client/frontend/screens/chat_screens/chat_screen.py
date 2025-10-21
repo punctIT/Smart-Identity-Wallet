@@ -25,10 +25,17 @@ class ChatScreen(
         self.server = server
         self.scroll_scheduled = None 
         self.setup_chat_screen()
+    
     def on_enter(self, *args):
         self.chat_layout.clear_widgets()
         self.add_message("Assistant", "Bună! Sunt aici să te ajut. Întreabă-mă orice!", is_user=False)
+        Clock.schedule_once(self.scroll_to_top_delayed, 0.2)
         return super().on_enter(*args)
+    
+    def scroll_to_top_delayed(self, dt):
+        """Funcție pentru scroll întârziat"""
+        self.scroll.scroll_y = 1
+        
     def setup_chat_screen(self):
         # Main layout
         main_layout = BoxLayout(orientation='vertical', padding=10, spacing=10)
@@ -44,14 +51,21 @@ class ChatScreen(
         main_layout.add_widget(title_label)
         
         # Chat messages container with scroll
-        self.scroll = ScrollView()
+        self.scroll = ScrollView(
+            do_scroll_x=False,  # Doar scroll vertical
+            do_scroll_y=True,   # Activează scroll vertical
+            scroll_type=['content']  # Scroll prin conținut
+        )
+        
         self.chat_layout = BoxLayout(
             orientation='vertical',
             spacing=10,
             size_hint_y=None,
             padding=[10, 0]
         )
+        # FIX PRINCIPAL: Binding corect pentru scroll
         self.chat_layout.bind(minimum_height=self.chat_layout.setter('height'))
+        
         self.scroll.add_widget(self.chat_layout)
         main_layout.add_widget(self.scroll)
         
@@ -132,33 +146,59 @@ class ChatScreen(
         
         main_layout.add_widget(input_container)
         self.add_widget(main_layout)
-        
-        # Add welcome message
-        #self.add_message("Assistant", "Bună! Sunt aici să te ajut. Întreabă-mă orice!", is_user=False)
     
     def add_message(self, sender, message, is_user=True):
         """Add a message to the chat"""
-        # Salvează poziția curentă de scroll
-        old_height = self.chat_layout.height
-        
-        # Create message container with proper height
+        # Create message container cu înălțime dinamică
         message_layout = BoxLayout(
             orientation='horizontal',
             size_hint_y=None,
-            height=60,
-            spacing=10
+            height=80,  # Înălțime inițială, va fi ajustată
+            spacing=10,
+            padding=[5, 5, 5, 5]
         )
         
         message_label = Label(
             text="",
-            text_size=(300, None),
+            text_size=(None, None),  # Inițial None pentru calculare automată
             halign='left',
             valign='middle',
-            size_hint_y=None,
-            height=60,
+            size_hint=(None, None),  # Size hint None pentru control manual
             markup=True,
-            color=(1, 1, 1, 1)  # Text alb
+            color=(1, 1, 1, 1),  # Text alb
+            padding=(15, 10)
         )
+        
+        # Setează textul pentru a calcula dimensiunea
+        if is_user:
+            message_label.text = f"[color=3366ff]{sender}:[/color] {message}"
+        else:
+            message_label.text = f"[color=33cc33]{sender}:[/color] {message}"
+        
+        # Calculează dimensiunea optimă
+        def calculate_size():
+            # Calculează lățimea bazată pe scroll view width (cu marje)
+            available_width = self.scroll.width * 0.7  # 70% din lățimea disponibilă
+            max_width = min(available_width, 400)  # Maximum 400px
+            min_width = 10  # Minimum 100px
+            
+            # Setează text_size pentru wrapping
+            message_label.text_size = (max_width, None)
+            message_label.texture_update()  # Forțează recalcularea texture-ului
+            
+            # Calculează dimensiunile finale
+            text_width = message_label.texture_size[0]
+            text_height = message_label.texture_size[1]
+            
+            # Ajustează dimensiunile cu padding
+            final_width = min(max(text_width +3, min_width), max_width)
+            final_height = max(text_height + 20, 60)  # Minimum 60px înălțime
+            
+            message_label.size = (final_width, final_height)
+            message_layout.height = final_height + 20  # Extra spațiu pentru container
+        
+        # Calculează dimensiunea inițială
+        Clock.schedule_once(lambda dt: calculate_size(), 0.01)
         
         # Desenează chenarul rotund pe canvas - gri foarte închis
         with message_label.canvas.before:
@@ -176,24 +216,29 @@ class ChatScreen(
         
         message_label.bind(pos=update_rect, size=update_rect)
         
-        if is_user:
-            message_label.text = f"[color=3366ff]{sender}:[/color] {message}"
-        else:
-            message_label.text = f"[color=33cc33]{sender}:[/color] {message}"
+        # Recalculează la schimbarea dimensiunii scroll view-ului
+        def on_scroll_size(instance, value):
+            calculate_size()
+        
+        self.scroll.bind(size=on_scroll_size)
         
         if is_user:
-            spacer_left = Label(size_hint_x=0.3)
+            spacer_left = Label(size_hint_x=0.2)  # Mic spațiu în stânga
             message_layout.add_widget(spacer_left)
             message_layout.add_widget(message_label)
         else:
             message_layout.add_widget(message_label)
-            spacer_right = Label(size_hint_x=0.3)
+            spacer_right = Label(size_hint_x=0.2)  # Mic spațiu în dreapta
             message_layout.add_widget(spacer_right)
-        
-        # Add to chat layout
+
         self.chat_layout.add_widget(message_layout)
         
-        
+        Clock.schedule_once(self.scroll_to_bottom, 0.1)
+    
+    def scroll_to_bottom(self, dt=None):
+        """Scroll la ultimul mesaj adăugat"""
+        #self.scroll.scroll_y = 0
+        pass
     
     def send_message(self, instance=None):
         """Send a message and get response"""
@@ -204,18 +249,17 @@ class ChatScreen(
 
         self.add_message("Tu", message_text, is_user=True)
         
-        # Clear input
+       
         self.message_input.text = ""
-        response=self.server.sent_chatbot_msg(message_text)
+        response = self.server.sent_chatbot_msg(message_text)
         if response != None:
-            if response['success']==True:
+            if response['success'] == True:
                 Clock.schedule_once(lambda dt: self.add_response(response['data']), 0.5)
             else:
                 Clock.schedule_once(lambda dt: self.add_response("error"), 0.5)
-       
     
-    def add_response(self,text):
-        self.add_message("Assistant",text, is_user=False)
+    def add_response(self, text):
+        self.add_message("Assistant", text, is_user=False)
 
 
 __all__ = ["ChatScreen"]
