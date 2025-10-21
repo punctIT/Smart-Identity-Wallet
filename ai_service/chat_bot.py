@@ -6,6 +6,6 @@ class ChatBot:
         pass
     def get_response(self,text):
         if text == "salut":
-            return "salut si tie"
+            return "ana re mere msau cevaana re mere msau cevaana re mere msau cevaana re mere msau cevaana re mere msau cevaana re mere msau cevaana re mere msau cevaana re mere msau cevaana re mere msau cevaana re mere msau cevaana re mere msau cevaana re mere msau cevaana re mere msau cevaana re mere msau cevaana re mere msau ceva"
         else :
             return "nu m ai salutat"
