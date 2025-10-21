@@ -187,86 +187,80 @@ class HomeScreen(Screen, CustomButton, CustomCards, Alignment):
         self.sm = sm if hasattr(sm, "has_screen") else None 
         self._back_binding = False
         self.add_widget(GradientBackground())
+        root = BoxLayout(orientation='vertical', padding=[dp(16), dp(4), dp(16), dp(4)], spacing=dp(8))
 
-        safe_top = self._safe_top_padding(12)
-        safe_bottom = self._safe_bottom_padding(12)
-        root = BoxLayout(
-            orientation='vertical',
-            padding=[dp(16), safe_top, dp(16), safe_bottom],
-            spacing=dp(12)
-        )
         self.add_widget(root)
 
         # TOP BAR
-        topbar = BoxLayout(orientation='vertical', size_hint_y=None, spacing=dp(2), padding=[0, 0, 0, dp(6)])
-        topbar.bind(minimum_height=topbar.setter("height"))
-
-        title = Label(
-            text='[b][color=#33A3FF]Smart ID Wallet[/color][/b]',
-            markup=True,
-            halign='left',
-            valign='middle',
-            color=TEXT_PRIMARY,
-            font_size=sp(30),
-            size_hint=(1, None)
+        topbar = BoxLayout(
+            orientation='vertical', 
+            size_hint_y=0.25,  # 25% pentru main content
+            spacing=dp(2)
         )
-        title.bind(size=lambda lbl, size: setattr(lbl, 'text_size', size))
-
-        subtitle = Label(
-            text='Portofel digital pentru documentele tale esențiale.',
-            color=TEXT_SECONDARY,
-            font_size=sp(15),
-            halign='left',
-            valign='middle',
-            size_hint=(1, None)
+        title = Label(text='[b][color=#33A3FF]Smart ID Wallet[/color][/b]', markup=True,
+                      halign='left', valign='middle', color=TEXT_PRIMARY, font_size=sp(32))
+        title.bind(size=lambda l, s: setattr(l, 'text_size', s))
+        
+        self.main_container = BoxLayout(
+            orientation='vertical', 
+            size_hint_y=0.25,  # 25% pentru main content
+            spacing=dp(10)
         )
-        subtitle.bind(size=lambda lbl, size: setattr(lbl, 'text_size', size))
-
+        
+        sv = ScrollView(size_hint=(1, 0.75))
+        
         topbar.add_widget(title)
-        topbar.add_widget(subtitle)
+    
         root.add_widget(topbar)
 
-        # Scrollable content area
-        content_scroll = ScrollView(size_hint=(1, 1), bar_width=0)
-        content = BoxLayout(orientation='vertical', spacing=dp(16), size_hint_y=None)
-        content.bind(minimum_height=content.setter('height'))
+     
+      
+        self.main_container.bind(minimum_height=self.main_container.setter('height'))
 
-        carousel_section = BoxLayout(orientation='vertical', size_hint_y=None, spacing=dp(8))
-        carousel_section.bind(minimum_height=carousel_section.setter('height'))
 
-        carousel_row = AnchorLayout(size_hint=(1, None), height=dp(150))
-        self.main_carousel = Carousel(direction='right', anim_move_duration=0.2, size_hint=(1, 1))
-        self.main_carousel.add_widget(self.create_news_card("Nimic nou", "nu exista noutati", "#FFFFFF"))
+       
+        carousel_row = AnchorLayout(size_hint_y=None, height=dp(150))
+
+        self.main_carousel = Carousel(
+            direction='right',
+            anim_move_duration=0.2,
+            size_hint=(1, 1)
+        )
+
+        self.main_carousel.add_widget(self.create_news_card(
+                "Nimic nou", "nu exista noutati", "#FFFFFF"
+        ))
+
         carousel_row.add_widget(self.main_carousel)
-        carousel_section.add_widget(carousel_row)
+        self.main_container.add_widget(carousel_row)  # Adaugă în container
 
         self.dots = BoxLayout(size_hint_y=None, height=dp(14), spacing=dp(6), padding=[0, 0, 0, dp(4)])
-        self.dot_widgets = [self.make_dot(i == 0) for i in range(len(self.main_carousel.children) + 1)]
+        self.dot_widgets = [self.make_dot(i == 0) for i in range(len(self.main_carousel.children)+1)]
+
         self.dots.add_widget(Widget())
         for dot in self.dot_widgets:
             self.dots.add_widget(dot)
         self.dots.add_widget(Widget())
-        carousel_section.add_widget(self.dots)
 
-        def update_dots(_instance, _value):
+        self.main_container.add_widget(self.dots) 
+
+        def update_dots(instance, value):
             current_index = self.main_carousel.index
             for i, dot in enumerate(self.dot_widgets):
-                dot._color_instr.rgba = (1, 1, 1, 0.9) if i == current_index else (1, 1, 1, 0.25)
+                target_color = (1,1,1,0.9) if i == current_index else (1,1,1,0.25)
+                dot._color_instr.rgba = target_color
 
         self.main_carousel.bind(index=update_dots)
+        self.main_container.size_hint_y = 0.2 
+        root.add_widget(self.main_container)
 
-        content.add_widget(carousel_section)
-
-        grid_wrap = BoxLayout(
-            orientation='vertical',
-            size_hint_y=None,
-            padding=[0, dp(6), 0, self._safe_bottom_padding(72)]
-        )
+       
+        grid_wrap = BoxLayout(orientation='vertical', size_hint_y=None, padding=[0, dp(6), 0, dp(80)])
         grid_wrap.bind(minimum_height=grid_wrap.setter("height"))
-
         grid = GridLayout(cols=2, padding=[dp(8), dp(8)], spacing=dp(14), size_hint_y=None)
         grid.bind(minimum_height=grid.setter("height"))
 
+        # CATEGORY CARDS (Now using the clickable CategoryTile class)
         for tile in CATEGORY_TILE_CONFIG:
             grid.add_widget(CategoryTile(
                 sm=self.sm,
@@ -276,11 +270,8 @@ class HomeScreen(Screen, CustomButton, CustomCards, Alignment):
             ))
 
         grid_wrap.add_widget(grid)
-        content.add_widget(grid_wrap)
-        content.add_widget(Widget(size_hint_y=None, height=dp(8)))
-
-        content_scroll.add_widget(content)
-        root.add_widget(content_scroll)
+        sv.add_widget(grid_wrap)
+        root.add_widget(sv)
 
         # BOTTOM BAR
         self._build_bottom_nav()

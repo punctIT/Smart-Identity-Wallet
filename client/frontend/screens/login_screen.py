@@ -188,12 +188,9 @@ class LoginScreen(Screen,CustomLabels,CustomButton,CustomInput,Alignment):
 
         response = self.server.send_login(self.username_input.text, self.password_input.text)
         if response:
-            if self.manager and self.manager.has_screen('home'):
-                home = self.manager.get_screen('home')
-                home.set_server(self.server)
-                home.set_user_info(response.get('user_info'))
+            if response['success'] is True:
                 self.manager.transition.direction = 'left'
                 self.manager.current = 'home'
         else:
-            message = getattr(self.server, "last_message", None) or "Could not connect to server. Please try again."
+            message = "Could not connect to server. Please try again."
             self._set_error(self.err_user, message)
