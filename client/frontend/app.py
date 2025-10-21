@@ -14,6 +14,8 @@ from frontend.screens.home_screen.diverse_docs_screen import DiverseDocsScreen
 from frontend.screens.home_screen.scan_camera_screen import CameraScanScreen
 from frontend.screens.register_screen import RegisterScreen
 from frontend.screens.splash_screen import SplashScreen
+from frontend.screens.chat_screens.chat_screen import ChatScreen
+
 
 class SwipeScreenManager(ScreenManager):
     def __init__(self, **kwargs):
@@ -42,13 +44,13 @@ class SwipeScreenManager(ScreenManager):
                         return True
             if abs(swipe_vector.x) > self.min_swipe_distance and abs(swipe_vector.x) > abs(swipe_vector.y):
                 if swipe_vector.x > 0:  
-                    for screen in ["personal_docs","transport_docs","vehicul_docs",'diverse_docs','camera_scan']:
+                    for screen in ["personal_docs","transport_docs","vehicul_docs",'diverse_docs','camera_scan','chat']:
                         if self.current == screen:
                             self.transition.direction = 'right'
                             self.current = 'home'
                             return True
                 else:
-                    for screen in ["personal_docs","transport_docs","vehicul_docs",'diverse_docs','camera_scan']:
+                    for screen in ["personal_docs","transport_docs","vehicul_docs",'diverse_docs','camera_scan','chat']:
                         if self.current == screen:
                             self.transition.direction = 'left'
                             self.current = 'home'
@@ -73,7 +75,7 @@ class SmartIdApp(App):
         sm.add_widget(TransportDocsScreen(self.server))
         sm.add_widget(DiverseDocsScreen(self.server))
         sm.add_widget(CameraScanScreen(self.server))
-       
+        sm.add_widget(ChatScreen(self.server))
 
         sm.current = 'first'
         

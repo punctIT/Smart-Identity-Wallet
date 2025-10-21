@@ -20,7 +20,7 @@ from frontend.screens.widgets.custom_background import GradientBackground
 from frontend.screens.widgets.custom_buttons import CustomButton
 from frontend.screens.widgets.custom_alignment import Alignment
 from frontend.screens.widgets.custom_cards import CustomCards
-
+from frontend.screens.widgets.custom_label import LinkLabel
 
 # ------------------------ THEME ------------------------
 BG_TOP      = (0.06, 0.07, 0.10, 1)
@@ -334,8 +334,13 @@ class HomeScreen(Screen, CustomButton, CustomCards, Alignment):
         bar.add_widget(Widget()) 
 
         right = AnchorLayout(size_hint_x=0.4)
-        right.add_widget(Label(text="[b][color=#33A3FF]AI CHAT BOT[/color][/b]", markup=True,
-                               font_size=sp(18), color=ACCENT))
+        def go_chat():
+            self.sm.current='chat'
+        chat=LinkLabel(text="[b][color=#33A3FF]AI CHAT BOT[/color][/b]", markup=True,
+                               font_size=sp(18), color=ACCENT)
+        chat.bind(on_press=lambda *_: go_chat())
+        right.add_widget(chat)
+       
         bar.add_widget(right)
 
         layer.add_widget(bar)

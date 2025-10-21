@@ -21,7 +21,9 @@ class MessageRequest(BaseModel):
     message_type: str
     user_id: str
     content: Any
+from chat_bot import ChatBot
 
+chatbot = ChatBot()
 
 @app.get("/health")
 async def health():
@@ -29,7 +31,8 @@ async def health():
 
 @app.post("/chat")
 async def chat(request: MessageRequest):
-    return "salut"
+    print(request.content)
+    return chatbot.get_response(request.content)
 
 @app.post("/ocr")
 async def ocr(file: MessageRequest):
