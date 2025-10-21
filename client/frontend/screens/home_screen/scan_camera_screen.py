@@ -33,11 +33,12 @@ except ImportError:  # pragma: no cover
     check_permission = None
     Permission = None
 
+from kivy.uix.widget import Widget
+
 from frontend.screens.widgets.custom_alignment import Alignment
 from frontend.screens.widgets.custom_background import GradientBackground
 from frontend.screens.widgets.custom_buttons import CustomButton
 from frontend.screens.widgets.custom_label import CustomLabels
-
 
 TEXT_PRIMARY = (0.92, 0.95, 1.00, 1)
 TEXT_SECONDARY = (0.70, 0.76, 0.86, 1)
@@ -77,8 +78,9 @@ class CameraFrame(AnchorLayout):
 
     def _update_frame(self, *_):
         aspect_ratio = 1.58
-        available_width = max(self.width * 0.82, 0)
-        available_height = max(self.height * 0.82, 0)
+        # Increased frame area by reducing padding percentage
+        available_width = max(self.width * 0.95, 0) 
+        available_height = max(self.height * 0.95, 0)
         width = min(available_width, available_height * aspect_ratio)
         height = width / aspect_ratio if aspect_ratio else 0
         x = self.center_x - width / 2
@@ -100,12 +102,13 @@ class CameraScanScreen(Screen, CustomLabels, CustomButton, Alignment):
 
         content = BoxLayout(
             orientation="vertical",
-            padding=[dp(18), dp(16), dp(18), dp(24)],
-            spacing=dp(18),
+            padding=[dp(18), dp(10), dp(18), dp(10)], # Reduced vertical padding
+            spacing=dp(10), # Reduced spacing
         )
         self.add_widget(content)
 
-        header = BoxLayout(orientation="horizontal", size_hint_y=None, height=dp(48), spacing=dp(12))
+        # REDUCED HEADER HEIGHT
+        header = BoxLayout(orientation="horizontal", size_hint_y=None, height=dp(40), spacing=dp(8)) 
         back_btn = self.make_rounded_button("Înapoi", ACCENT_MUTED, self._go_back)
         back_btn.size_hint = (None, None)
         back_btn.width = dp(120)
@@ -122,6 +125,7 @@ class CameraScanScreen(Screen, CustomLabels, CustomButton, Alignment):
         header.add_widget(title_label)
         content.add_widget(header)
 
+        # REDUCED INSTRUCTIONS HEIGHT
         instructions = Label(
             text="Aliniază documentul în cadru și apasă „Fotografiază”.",
             color=TEXT_SECONDARY,
@@ -129,13 +133,14 @@ class CameraScanScreen(Screen, CustomLabels, CustomButton, Alignment):
             halign="center",
             valign="middle",
             size_hint_y=None,
-            height=dp(38),
+            height=dp(30), 
         )
         instructions.bind(size=lambda lbl, size: setattr(lbl, "text_size", size))
         content.add_widget(instructions)
 
+        # REDUCED PADDING FOR PREVIEW HOLDER
         self.preview_holder = AnchorLayout(size_hint=(1, 1))
-        self.preview_holder.padding = [0, 0, 0, dp(12)]
+        self.preview_holder.padding = [0, 0, 0, dp(8)] 
         content.add_widget(self.preview_holder)
         self._show_placeholder("Se inițializează camera...")
 
@@ -143,16 +148,18 @@ class CameraScanScreen(Screen, CustomLabels, CustomButton, Alignment):
         self.capture_btn.size_hint = (None, None)
         self.capture_btn.width = dp(200)
         self.capture_btn.disabled = True
+        # REDUCED CAPTURE BUTTON HEIGHT
         content.add_widget(
-            self.center_row(self.capture_btn, rel_width=0.6, min_w=dp(220), max_w=dp(320), height=dp(46))
+            self.center_row(self.capture_btn, rel_width=0.6, min_w=dp(220), max_w=dp(320), height=dp(40)) 
         )
 
+        # REDUCED STATUS LABEL HEIGHT
         self.status_label = Label(
             text="",
             color=TEXT_SECONDARY,
             font_size=sp(14),
             size_hint_y=None,
-            height=dp(20),
+            height=dp(15),
             halign="center",
             valign="middle",
         )
