@@ -18,6 +18,7 @@ class SplashScreen(Screen):
         self.animation_event = None
         self.dot_index = 0
         self.status_base_text = 'Connecting to server'
+        self.retry_attempts = 0
 
         layout = BoxLayout(orientation='vertical', padding=20, spacing=20)
 
@@ -45,6 +46,7 @@ class SplashScreen(Screen):
     def on_pre_enter(self):
         self.set_status_message('Connecting to server', animate=False)
         self.dot_index = 0
+        self.retry_attempts = 0
 
     def on_enter(self):
         self.set_status_message('Connecting to server', animate=True)
@@ -63,12 +65,21 @@ class SplashScreen(Screen):
         if self.server.connect() is not None:
             self.stop_status_animation()
             self.status_label.text = 'Connected! Redirecting...'
+            self.retry_attempts = 0
             Clock.schedule_once(lambda dt: self.go_next(), 0.5)
         else:
+            self.retry_attempts += 1
+            if self.retry_attempts >= 3:
+                self.stop_status_animation()
+                self.status_label.text = 'Unable to connect. Updating settings...'
+                Clock.schedule_once(lambda dt: self.go_server_setup(), 1.2)
+                return
             self.set_status_message('Unable to connect. Retrying', animate=True)
             Clock.schedule_once(lambda dt: self.retry_connect(), 2)
 
     def retry_connect(self, *args):
+        if self.retry_attempts >= 3:
+            return
         self.set_status_message('Reconnecting to server', animate=True)
         Clock.schedule_once(lambda dt: self.go_login(), 0)
 
@@ -97,3 +108,7 @@ class SplashScreen(Screen):
         dots = '.' * self.dot_index
         self.status_label.text = f'{self.status_base_text}{dots}'
 
+    def go_server_setup(self, *_):
+        if self.manager and self.manager.has_screen('server_setup'):
+            self.manager.transition.direction = 'right'
+            self.manager.current = 'server_setup'
