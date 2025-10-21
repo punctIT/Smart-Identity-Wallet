@@ -327,8 +327,8 @@ class HomeScreen(Screen, CustomButton, CustomCards, Alignment):
                  size=lambda *_: setattr(bar._bg, 'size', bar.size))
 
         left = BoxLayout(orientation='vertical', size_hint_x=0.25, padding=[0, dp(6), 0, dp(6)])
-        left.add_widget(Label(text="🏠", font_size=sp(18), color=TEXT_SECONDARY))
-        left.add_widget(Label(text="Acasă", font_size=sp(13), color=ACCENT_YELLOW))
+        # left.add_widget(Label(text="🏠", font_size=sp(18), color=TEXT_SECONDARY))
+        # left.add_widget(Label(text="Acasă", font_size=sp(13), color=ACCENT_YELLOW))
         bar.add_widget(left)
 
         bar.add_widget(Widget()) 

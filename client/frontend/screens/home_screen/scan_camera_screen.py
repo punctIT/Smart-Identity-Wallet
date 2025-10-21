@@ -10,6 +10,18 @@ from kivy.uix.camera import Camera
 from kivy.uix.label import Label
 from kivy.uix.screenmanager import Screen
 from kivy.graphics import Color, Line, PushMatrix, PopMatrix, Rotate
+from kivy.app import App
+from kivy.utils import platform
+
+try:
+    if platform == "android":
+        from android.storage import app_storage_path, primary_external_storage_path  # type: ignore
+    else:  # pragma: no cover - desktop fallback
+        app_storage_path = None
+        primary_external_storage_path = None
+except ImportError:  # pragma: no cover - safety net for build variants
+    app_storage_path = None
+    primary_external_storage_path = None
 
 from frontend.screens.widgets.custom_alignment import Alignment
 from frontend.screens.widgets.custom_background import GradientBackground
@@ -38,14 +50,20 @@ class CameraFrame(AnchorLayout):
         self.camera_widget.bind(pos=self._update_rotation_origin, size=self._update_rotation_origin)
 
         with self.canvas.after:
+            PushMatrix()
+            self._frame_rotation = Rotate(angle=-90, origin=self.center)
             Color(1, 1, 1, 0.45)
             self._frame = Line(width=dp(2))
+            PopMatrix()
 
         self.bind(size=self._update_frame, pos=self._update_frame)
+        self.bind(size=self._update_rotation_origin, pos=self._update_rotation_origin)
 
     def _update_rotation_origin(self, *_):
         if self._rotation:
             self._rotation.origin = self.camera_widget.center
+        if hasattr(self, "_frame_rotation") and self._frame_rotation:
+            self._frame_rotation.origin = self.center
 
     def _update_frame(self, *_):
         aspect_ratio = 1.58  # width/height ratio approximating an ID card
@@ -175,11 +193,42 @@ class CameraScanScreen(Screen, CustomLabels, CustomButton, Alignment):
         if self._camera_available and self.camera_widget:
             self.camera_widget.play = False
 
+    def _resolve_capture_directory(self) -> Path:
+        """Pick a writable directory that survives on Android packaging."""
+        app = App.get_running_app()
+
+        if platform == "android":
+            storage_root = None
+            if callable(primary_external_storage_path):
+                try:
+                    storage_root = Path(primary_external_storage_path())
+                except Exception:  # noqa: BLE001
+                    storage_root = None
+            if storage_root:
+                # Use the shared Pictures directory so the user can find captures.
+                target_dir = storage_root / "Pictures" / "SmartIdentityWallet"
+            elif app and getattr(app, "user_data_dir", None):
+                target_dir = Path(app.user_data_dir) / "captures"
+            elif callable(app_storage_path):
+                try:
+                    target_dir = Path(app_storage_path())
+                except Exception:  # noqa: BLE001
+                    target_dir = Path.cwd() / "captures"
+            else:
+                target_dir = Path.cwd() / "captures"
+        else:
+            if app and getattr(app, "user_data_dir", None):
+                target_dir = Path(app.user_data_dir) / "captures"
+            else:
+                target_dir = Path.cwd() / "captures"
+
+        target_dir.mkdir(parents=True, exist_ok=True)
+        return target_dir
+
     def _capture(self, *_):
         if not self._camera_available or not self.camera_widget:
             return
-        target_dir = Path(__file__).resolve().parents[2] / "captures"
-        target_dir.mkdir(parents=True, exist_ok=True)
+        target_dir = self._resolve_capture_directory()
         filename = datetime.now().strftime("scan_%Y%m%d_%H%M%S.png")
         filepath = target_dir / filename
         try:
