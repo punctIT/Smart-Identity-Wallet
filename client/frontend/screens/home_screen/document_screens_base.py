@@ -374,7 +374,6 @@ class BaseDocumentsScreen(MDScreen, Alignment):
 
         self._build_ui()
         self._apply_scale()
-        self._load_documents()
 
     # ------------------------------------------------------------------ #
     # UI construction
@@ -662,6 +661,7 @@ class BaseDocumentsScreen(MDScreen, Alignment):
                 response = None
             if response and response.get("success"):
                 payload = response.get("data") or {}
+                print(payload)
                 for key in self.document_data_keys:
                     cards = payload.get(key)
                     if cards:
