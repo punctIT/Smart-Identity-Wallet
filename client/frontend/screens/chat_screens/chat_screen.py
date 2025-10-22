@@ -5,9 +5,55 @@ from kivymd.uix.label import MDLabel
 from kivymd.uix.textfield import MDTextField
 from kivymd.uix.button import MDIconButton, MDRaisedButton
 from kivymd.uix.card import MDCard
+from kivymd.uix.spinner import MDSpinner
 from kivy.clock import Clock
 from kivy.metrics import dp
 from kivy.properties import StringProperty, BooleanProperty
+import threading
+import time
+
+
+class LoadingBubble(MDCard):
+    """Loading indicator bubble"""
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        
+        # Card properties
+        self.orientation = 'horizontal'
+        self.size_hint_y = None
+        self.height = dp(60)
+        self.padding = dp(12)
+        self.spacing = dp(8)
+        self.radius = [dp(20), dp(20), dp(20), dp(20)]
+        self.elevation = 2
+        self.md_bg_color = (0.2, 0.2, 0.2, 1)  # Dark gray for assistant
+        
+        self.build_bubble()
+    
+    def build_bubble(self):
+        """Build the loading bubble content"""
+        # Loading spinner
+        spinner = MDSpinner(
+            size_hint=(None, None),
+            size=(dp(24), dp(24)),
+            pos_hint={'center_y': 0.5},
+            active=True,
+            palette=[(0.2, 0.8, 0.2, 1)]  # Green color
+        )
+        self.add_widget(spinner)
+        
+        # "Typing..." label
+        typing_label = MDLabel(
+            text="Assistant scrie...",
+            size_hint_y=None,
+            height=dp(20),
+            theme_text_color="Custom",
+            text_color=(0.2, 0.8, 0.2, 1),
+            font_style="Body2",
+            pos_hint={'center_y': 0.5}
+        )
+        self.add_widget(typing_label)
 
 
 class MessageBubble(MDCard):
@@ -78,9 +124,11 @@ class ChatScreen(MDScreen):
         super().__init__(name="chat", **kwargs)
         self.server = server
         self.scroll_scheduled = None
+        self.loading_container = None  # Reference to loading message
+        self.is_loading = False  # Track loading state
         self.setup_chat_screen()
     
-    def on_enter(self, *args):
+    def on_pre_enter(self, *args):
         """Called when entering the screen"""
         self.chat_layout.clear_widgets()
         self.add_message("Assistant", "Bună! Sunt aici să te ajut. Întreabă-mă orice!", is_user=False)
@@ -131,39 +179,51 @@ class ChatScreen(MDScreen):
         self.scroll.add_widget(self.chat_layout)
         main_layout.add_widget(self.scroll)
         
-        # Input area container
         input_container = MDCard(
             orientation='horizontal',
             size_hint_y=None,
-            height=dp(60),
-            padding=[dp(8), dp(8)],
+            height=dp(56),
+            padding=[dp(4), dp(4)],
             spacing=dp(8),
-            radius=[dp(30)],
-            md_bg_color=(0.15, 0.15, 0.15, 1),
-            elevation=4
+            radius=[dp(28)],
+            md_bg_color=(0.12, 0.12, 0.12, 1),
+            elevation=3
         )
         
-        # Text input using MDTextField with correct parameters
         self.message_input = MDTextField(
             hint_text="Scrie un mesaj...",
             size_hint_x=1,
             multiline=False,
-            mode="rectangle",  # or "round" for rounded style
-            font_size=dp(16)
+            mode="fill",
+            fill_color_normal=(0.2, 0.2, 0.2, 1),
+            fill_color_focus=(0.25, 0.25, 0.25, 1),
+            line_color_normal=(0, 0, 0, 0),
+            line_color_focus=(0, 0, 0, 0),
+            text_color_normal=(1, 1, 1, 1),
+            text_color_focus=(1, 1, 1, 1),
+            hint_text_color_normal=(1, 1, 1, 0.5),
+            hint_text_color_focus=(1, 1, 1, 0.7),
+            font_size=dp(16),
+            radius=[dp(24)],
+            pos_hint={'center_y': 0.5}
         )
+        
         self.message_input.bind(on_text_validate=self.send_message)
         
-        # Send button using MDIconButton
-        send_button = MDIconButton(
+        # Send button with loading state
+        self.send_button = MDIconButton(
             icon="send",
             md_bg_color=(0.2, 0.6, 1, 1),
             theme_text_color="Custom",
             text_color=(1, 1, 1, 1),
+            size_hint=(None, None),
+            size=(dp(48), dp(48)),
+            pos_hint={'center_y': 0.5},
             on_release=self.send_message
         )
         
         input_container.add_widget(self.message_input)
-        input_container.add_widget(send_button)
+        input_container.add_widget(self.send_button)
         
         main_layout.add_widget(input_container)
         self.add_widget(main_layout)
@@ -174,7 +234,7 @@ class ChatScreen(MDScreen):
         message_container = MDBoxLayout(
             orientation='horizontal',
             size_hint_y=None,
-            height=dp(80),  # Will be adjusted by bubble
+            height=dp(80),
             spacing=dp(10),
             padding=[dp(5), dp(5)]
         )
@@ -206,12 +266,114 @@ class ChatScreen(MDScreen):
         self.chat_layout.add_widget(message_container)
         Clock.schedule_once(self.scroll_to_bottom, 0.1)
     
+    def add_loading_indicator(self):
+        """Add loading indicator to chat"""
+        # Create container for loading alignment
+        self.loading_container = MDBoxLayout(
+            orientation='horizontal',
+            size_hint_y=None,
+            height=dp(70),
+            spacing=dp(10),
+            padding=[dp(5), dp(5)]
+        )
+        
+        # Create loading bubble
+        loading_bubble = LoadingBubble(size_hint_x=0.4)
+        
+        # Align loading bubble to left (assistant side)
+        self.loading_container.add_widget(loading_bubble)
+        spacer_right = MDLabel(size_hint_x=0.6)
+        self.loading_container.add_widget(spacer_right)
+        
+        self.chat_layout.add_widget(self.loading_container)
+        Clock.schedule_once(self.scroll_to_bottom, 0.1)
+    
+    def remove_loading_indicator(self):
+        """Remove loading indicator from chat"""
+        if self.loading_container:
+            self.chat_layout.remove_widget(self.loading_container)
+            self.loading_container = None
+    
+    def set_loading_state(self, loading):
+        """Set the loading state and update UI"""
+        self.is_loading = loading
+        
+        if loading:
+            # Disable input and change button
+            self.message_input.disabled = True
+            self.send_button.disabled = True
+            self.send_button.icon = "loading"
+            self.send_button.md_bg_color = (0.5, 0.5, 0.5, 1)  # Gray out button
+            
+            # Add loading indicator
+            self.add_loading_indicator()
+        else:
+            # Enable input and restore button
+            self.message_input.disabled = False
+            self.send_button.disabled = False
+            self.send_button.icon = "send"
+            self.send_button.md_bg_color = (0.2, 0.6, 1, 1)  # Restore color
+            
+            # Remove loading indicator
+            self.remove_loading_indicator()
+    
     def scroll_to_bottom(self, dt=None):
         """Scroll to the last added message"""
         self.scroll.scroll_y = 0
     
+    def send_message_async(self, message_text):
+        """Send message in background thread"""
+        def background_task():
+            try:
+                # Simulate some delay to show loading (remove this in production)
+                time.sleep(0.5)
+                
+                # Get response from server
+                response = self.server.sent_chatbot_msg(message_text)
+                
+                # Schedule UI update on main thread
+                Clock.schedule_once(
+                    lambda dt: self.handle_response(response),
+                    0
+                )
+            except Exception as e:
+                # Handle errors
+                Clock.schedule_once(
+                    lambda dt: self.handle_response(None, str(e)),
+                    0
+                )
+        
+        # Start background thread
+        thread = threading.Thread(target=background_task)
+        thread.daemon = True
+        thread.start()
+    
+    def handle_response(self, response, error=None):
+        """Handle the response from server (called on main thread)"""
+        # Remove loading state
+        self.set_loading_state(False)
+        
+        if error:
+            # Show error message
+            self.add_message("Assistant", f"❌ Eroare: {error}", is_user=False)
+        elif response is not None:
+            if response.get('success', False):
+                # Show successful response
+                self.add_message("Assistant", response['data'], is_user=False)
+            else:
+                # Show error from server
+                error_msg = response.get('error', 'Nu am putut procesa mesajul.')
+                self.add_message("Assistant", f"❌ {error_msg}", is_user=False)
+        else:
+            # Show generic error
+            self.add_message("Assistant", "❌ Nu am putut procesa mesajul. Încearcă din nou.", is_user=False)
+    
     def send_message(self, instance=None):
         """Send a message and get response"""
+        # Don't send if already loading
+        if self.is_loading:
+            return
+            
         message_text = self.message_input.text.strip()
         
         if not message_text:
@@ -223,19 +385,11 @@ class ChatScreen(MDScreen):
         # Clear input
         self.message_input.text = ""
         
-        # Get response from server
-        response = self.server.sent_chatbot_msg(message_text)
-        if response is not None:
-            if response.get('success', False):
-                Clock.schedule_once(
-                    lambda dt: self.add_message("Assistant", response['data'], is_user=False),
-                    0.5
-                )
-            else:
-                Clock.schedule_once(
-                    lambda dt: self.add_message("Assistant", "Error: Nu am putut procesa mesajul.", is_user=False),
-                    0.5
-                )
+        # Set loading state
+        self.set_loading_state(True)
+        
+        # Send message in background
+        self.send_message_async(message_text)
 
 
 __all__ = ["ChatScreen"]

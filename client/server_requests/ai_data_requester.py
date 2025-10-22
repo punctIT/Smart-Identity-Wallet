@@ -18,7 +18,7 @@ class AI_DataRequester:
             response = self.session.post(
                 f"{self.server_url}/api/AI", 
                 json=payload, 
-                timeout=5
+                timeout=60
             )
             
             if response.status_code == 200:
