@@ -39,6 +39,7 @@ impl DataRequestHandler {
             }
             "GetInsuranceAuto" => WalletCards::get("insurance_auto", &request, app_state).await,
             "GetWalletCards" => PersonalDataManager::check_all_cards(&request, app_state).await,
+            "GetWalletAuto" => PersonalDataManager::check_all_auto_data(&request, app_state).await,
             "News" => NewsData::get_latest_news(app_state).await,
             _ => DataRequestHandler::unknown().await,
         };
