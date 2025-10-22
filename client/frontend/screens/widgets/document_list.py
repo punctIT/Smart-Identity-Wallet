@@ -179,12 +179,6 @@ class DocumentListMixin(CustomCards, Alignment):
             or doc.get("document_name")
             or "Document"
         )
-        subtitle = (
-            doc.get("subtitle")
-            or doc.get("description")
-            or doc.get("type")
-            or ""
-        )
         meta_lines = self._collect_meta_lines(doc)
 
         base_height = self.CARD_MIN_HEIGHT + self.CARD_EXTRA_HEIGHT * max(len(meta_lines), 0)
@@ -216,22 +210,6 @@ class DocumentListMixin(CustomCards, Alignment):
         title_label.bind(size=lambda lbl, size: setattr(lbl, "text_size", (size[0], None)))
         title_updater = self._bind_dynamic_height(title_label, padding_dp=6)
         content.add_widget(title_label)
-
-        if subtitle:
-            subtitle_label = Label(
-                text=subtitle,
-                color=(0.70, 0.76, 0.86, 1),
-                font_size=self._scale_sp(self.SUBTITLE_CARD_FONT),
-                halign="left",
-                valign="middle",
-                size_hint=(1, None),
-            )
-            subtitle_label.bind(size=lambda lbl, size: setattr(lbl, "text_size", (size[0], None)))
-            subtitle_updater = self._bind_dynamic_height(subtitle_label, padding_dp=4)
-            content.add_widget(subtitle_label)
-        else:
-            subtitle_label = None
-            subtitle_updater = None
 
         meta_labels = []
         meta_updaters = []
@@ -265,12 +243,11 @@ class DocumentListMixin(CustomCards, Alignment):
             card=card,
             content=content,
             title=title_label,
-            subtitle=subtitle_label,
             meta=meta_labels,
             base_height=base_height,
             height_updaters=[
                 updater
-                for updater in (title_updater, subtitle_updater, *meta_updaters)
+                for updater in (title_updater, *meta_updaters)
                 if updater
             ],
         )
@@ -287,7 +264,6 @@ class DocumentListMixin(CustomCards, Alignment):
         card: AnchorLayout,
         content: Optional[Widget] = None,
         title: Optional[Widget] = None,
-        subtitle: Optional[Widget] = None,
         meta: Optional[Sequence[Widget]] = None,
         base_height: float = 0,
         height_updaters: Optional[Sequence] = None,
@@ -298,7 +274,6 @@ class DocumentListMixin(CustomCards, Alignment):
                 "card": card,
                 "content": content,
                 "title": title,
-                "subtitle": subtitle,
                 "meta": list(meta or []),
                 "base_height": base_height,
                 "height_updaters": list(height_updaters or []),
@@ -306,25 +281,37 @@ class DocumentListMixin(CustomCards, Alignment):
         )
 
     def _collect_meta_lines(self, doc: dict) -> Sequence[str]:
-        meta = doc.get("meta") or doc.get("details") or doc.get("metadata")
-        if not meta:
-            status = doc.get("status")
-            number = doc.get("number")
-            expiry = doc.get("expiry") or doc.get("expires_at")
-            lines = []
-            if status:
-                lines.append(f"Status: {status}")
-            if number:
-                lines.append(f"Număr: {number}")
-            if expiry:
-                lines.append(f"Expiră: {expiry}")
-            return lines
+        """Return only expiry-related meta info."""
+        expiry_value = (
+            doc.get("expiry")
+            or doc.get("expires_at")
+            or doc.get("expiration_date")
+        )
+        expiry_label = "Expiră"
 
-        if isinstance(meta, dict):
-            return [f"{key}: {meta[key]}" for key in meta]
-        if isinstance(meta, (list, tuple)):
-            return [str(item) for item in meta]
-        return [str(meta)]
+        meta = doc.get("meta") or doc.get("details") or doc.get("metadata")
+
+        if not expiry_value and isinstance(meta, dict):
+            for key, value in meta.items():
+                if "expir" in key.lower():
+                    expiry_value = value
+                    expiry_label = key
+                    break
+
+        if not expiry_value and isinstance(meta, (list, tuple)):
+            for item in meta:
+                item_str = str(item)
+                if "expir" in item_str.lower():
+                    return [item_str]
+
+        if not expiry_value and isinstance(meta, str):
+            if "expir" in meta.lower():
+                return [meta]
+
+        if expiry_value:
+            return [f"{expiry_label}: {expiry_value}"]
+
+        return []
 
     def _bind_dynamic_height(self, label: Label, padding_dp: int):
         def _update_height(*_):
@@ -396,10 +383,6 @@ class DocumentListMixin(CustomCards, Alignment):
                 update_fn = getattr(title_label, "_update_font_size", None)
                 if callable(update_fn):
                     update_fn()
-
-            subtitle_label = entry["subtitle"]
-            if subtitle_label:
-                subtitle_label.font_size = self._scale_sp(self.SUBTITLE_CARD_FONT)
 
             for meta_label in entry["meta"]:
                 meta_label.font_size = self._scale_sp(self.META_FONT)
