@@ -50,7 +50,7 @@ class VehiculDocsScreen(Screen):
         )
         subtitle_lbl.bind(size=lambda instance, value: setattr(instance, "text_size", value))
         self.main_box.add_widget(subtitle_lbl)
-
+        
         self.main_box.add_widget(Label(size_hint_y=None, height=dp(28)))
 
         self.scroll = ScrollView(size_hint=(1, 1))
@@ -59,8 +59,14 @@ class VehiculDocsScreen(Screen):
 
         self.scroll.add_widget(self.doc_container)
         self.main_box.add_widget(self.scroll)
-        self.add_docs(["ana", "are", "mere"])
         self.add_widget(self.main_box)
+
+    def on_pre_enter(self, *args):
+        data = self.server.get_specific_data("GetWalletAuto")
+        self.clear_docs()
+        print(data['data']['cards'])
+        self.add_docs(data['data']['cards'])
+        return super().on_pre_enter(*args)
 
     def clear_docs(self):
         self.doc_container.clear_widgets()
@@ -69,8 +75,10 @@ class VehiculDocsScreen(Screen):
         self.clear_docs()
         for doc_name in doc_names:
             card = Card()
+            # Acceptă fie dict cu 'title', fie string
+            title = doc_name['title'] if isinstance(doc_name, dict) and 'title' in doc_name else str(doc_name)
             btn = Button(
-                text=f"[b]{doc_name}[/b]",
+                text=f"[b]{title}[/b]",
                 markup=True,
                 font_size=sp(22),
                 color=(0.92, 0.95, 1.00, 1),
@@ -81,7 +89,7 @@ class VehiculDocsScreen(Screen):
             )
             btn.bind(size=lambda instance, value: setattr(instance, "text_size", value))
             # Print the name when button is pressed
-            btn.bind(on_press=lambda instance, name=doc_name: print(name))
+            btn.bind(on_press=lambda instance, name=title: print(name))
             card.add_widget(btn)
             self.doc_container.add_widget(card)
 
