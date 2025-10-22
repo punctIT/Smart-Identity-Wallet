@@ -11,7 +11,12 @@
 .DS_Store
 .idea/
 .vscode/
-
+.python-version
+client/.buildozer
+**buletin.jpg
+**ci_front_with_boxes.jpg
+client/bin
+client/buildozer.spec
 __pycache__/
 certs/
 venv/
