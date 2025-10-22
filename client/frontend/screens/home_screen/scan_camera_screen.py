@@ -123,7 +123,13 @@ class CameraScanScreen(MDScreen, Alignment):
         super().on_pre_enter()
         self._ensure_camera_ready()
         if self.camera_view:
-            self.camera_view.play = True
+            try:
+                self.camera_view.play = True
+            except Exception as exc:  # noqa: BLE001
+                Logger.error(f"CameraScanScreen: unable to start preview: {exc}")
+                print(f"[Camera] start preview failed: {exc}", flush=True)
+                self._show_camera_error("Camera indisponibilă.\nNu am reușit să pornesc previzualizarea.")
+                self._dispose_camera()
 
     def on_leave(self, *_):
         super().on_leave()
@@ -224,7 +230,15 @@ class CameraScanScreen(MDScreen, Alignment):
             self._camera_error_label.parent.remove_widget(self._camera_error_label)
             self._camera_error_label = None
 
-        camera.play = True
+        try:
+            camera.play = True
+        except Exception as exc:  # noqa: BLE001
+            Logger.error(f"CameraScanScreen: unable to start camera preview: {exc}")
+            print(f"[Camera] start preview failed: {exc}", flush=True)
+            self._show_camera_error("Camera indisponibilă.\nNu am reușit să pornesc previzualizarea.")
+            self._dispose_camera()
+            return
+
         if self.capture_button:
             self.capture_button.disabled = False
         self._capture_in_progress = False
@@ -304,7 +318,7 @@ class CameraScanScreen(MDScreen, Alignment):
                     if android_camera:
                         try:
                             params = android_camera.getParameters()
-                            params.setRotation(270)  # rotate 90° counter-clockwise
+                            params.setRotation(-90)
                             android_camera.setParameters(params)
                         except Exception as exc:  # noqa: BLE001
                             Logger.warning(f"CameraScanScreen: unable to adjust camera rotation: {exc}")
@@ -344,6 +358,21 @@ class CameraScanScreen(MDScreen, Alignment):
         shoot_button = getattr(self.camera_view, "ids", {}).get("shoot_button") if hasattr(self.camera_view, "ids") else None
         if shoot_button and shoot_button.parent:
             shoot_button.parent.remove_widget(shoot_button)
+
+    def _dispose_camera(self) -> None:
+        """Release current camera widget and reset state."""
+        if self.camera_view:
+            try:
+                self.camera_view.play = False
+            except Exception:
+                pass
+            if self.camera_view.parent:
+                self.camera_view.parent.remove_widget(self.camera_view)
+        self.camera_view = None
+        self._rotation = None
+        if self.capture_button:
+            self.capture_button.disabled = True
+        self._capture_in_progress = False
 
     # ------------------------------------------------------------------
     # Capture actions

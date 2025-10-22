@@ -24,9 +24,9 @@ class DocumentListMixin(CustomCards, Alignment):
 
     TITLE_FONT = 30
     SUBTITLE_FONT = 17
-    TITLE_CARD_FONT = 24
-    SUBTITLE_CARD_FONT = 15
-    META_FONT = 14
+    TITLE_CARD_FONT = 21
+    SUBTITLE_CARD_FONT = 13
+    META_FONT = 12
 
     ROOT_PADDING = (16, 10, 16, 16)
     ROOT_SPACING = 12
