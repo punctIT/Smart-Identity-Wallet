@@ -24,7 +24,7 @@ try:
     if platform == "android":
         from android.permissions import Permission, check_permission, request_permissions
         from android.storage import primary_external_storage_path
-        from jnius import autoclass, JavaException
+        from jnius import autoclass
 
         MediaScannerConnection = autoclass("android.media.MediaScannerConnection")
         PythonActivity = autoclass("org.kivy.android.PythonActivity")
@@ -34,14 +34,12 @@ try:
         MediaScannerConnection = None
         PythonActivity = None
         autoclass = None
-        JavaException = None
 except ImportError:
     Permission = check_permission = request_permissions = None
     primary_external_storage_path = None
     MediaScannerConnection = None
     PythonActivity = None
     autoclass = None
-    JavaException = None
 
 
 class CameraScanScreen(MDScreen, Alignment):
@@ -90,7 +88,12 @@ class CameraScanScreen(MDScreen, Alignment):
         header.add_widget(MDLabel())
         root.add_widget(header)
 
-        self.camera_holder = MDBoxLayout()
+        self.camera_holder = MDBoxLayout(
+            orientation="vertical",
+            size_hint=(1, 1),
+            padding=(0, 0, 0, 0),
+            spacing=0,
+        )
         root.add_widget(self.camera_holder)
 
         controls = MDBoxLayout(
@@ -214,6 +217,7 @@ class CameraScanScreen(MDScreen, Alignment):
 
         self.camera_view = camera
         self._ensure_android_capture_backend()
+        self._remove_default_capture_button()
         self.camera_holder.add_widget(self.camera_view)
 
         if self._camera_error_label and self._camera_error_label.parent:
@@ -291,8 +295,25 @@ class CameraScanScreen(MDScreen, Alignment):
 
         android_take_picture = getattr(android_api, "take_picture", None)
         if callable(android_take_picture):
-            platform_api.take_picture = android_take_picture
-            xcamera_module.take_picture = android_take_picture
+            if not getattr(android_api, "_smartid_rotation_patch", False):
+                original_take_picture = android_take_picture
+
+                def rotated_take_picture(camera_widget, filename, on_success):
+                    android_camera = getattr(getattr(camera_widget, "_camera", None), "_android_camera", None)
+                    if android_camera:
+                        try:
+                            params = android_camera.getParameters()
+                            params.setRotation(270)  # rotate 90° counter-clockwise
+                            android_camera.setParameters(params)
+                        except Exception as exc:  # noqa: BLE001
+                            Logger.warning(f"CameraScanScreen: unable to adjust camera rotation: {exc}")
+                    return original_take_picture(camera_widget, filename, on_success)
+
+                android_api._smartid_rotation_patch = True
+                android_api.take_picture = rotated_take_picture
+
+            platform_api.take_picture = android_api.take_picture
+            xcamera_module.take_picture = android_api.take_picture
 
     # ------------------------------------------------------------------
     # Error + navigation
@@ -314,6 +335,14 @@ class CameraScanScreen(MDScreen, Alignment):
         if self.capture_button:
             self.capture_button.disabled = True
         self._capture_in_progress = False
+
+    def _remove_default_capture_button(self) -> None:
+        """Remove the stock XCamera capture button so our custom control is the only one."""
+        if not self.camera_view:
+            return
+        shoot_button = getattr(self.camera_view, "ids", {}).get("shoot_button") if hasattr(self.camera_view, "ids") else None
+        if shoot_button and shoot_button.parent:
+            shoot_button.parent.remove_widget(shoot_button)
 
     # ------------------------------------------------------------------
     # Capture actions
