@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import os
 import threading
+from datetime import datetime
 
 from kivy.app import App
 from kivy.logger import Logger
@@ -15,7 +16,7 @@ from kivymd.uix.button import MDIconButton
 from kivymd.uix.label import MDLabel
 from kivymd.uix.screen import MDScreen
 
-from kivy_garden.xcamera.xcamera import XCamera, get_filename
+from kivy_garden.xcamera.xcamera import XCamera
 from kivy_garden.xcamera.platform_api import play_shutter
 
 from frontend.screens.widgets.custom_alignment import Alignment
@@ -53,15 +54,15 @@ class SafeXCamera(XCamera):
             self.play = previous_play_state
             return
 
-        filename = get_filename()
-        if self.directory:
-            filename = os.path.join(self.directory, filename)
+        filename = self._build_filename()
 
         width, height = texture.size
         pixel_data = bytes(texture.pixels)
 
         def _save():
             try:
+                os.makedirs(os.path.dirname(filename), exist_ok=True)
+
                 try:
                     from PIL import Image  # local import to avoid mandatory dependency at import time
 
@@ -75,7 +76,6 @@ class SafeXCamera(XCamera):
                     texture.save(filename, flipped=False)
 
                 play_shutter()
-                Logger.info(f"SafeXCamera: Saved capture to {filename}")
                 success = True
             except Exception as exc:  # noqa: BLE001
                 Logger.warning(f"SafeXCamera: Failed to save capture ({exc})")
@@ -86,11 +86,18 @@ class SafeXCamera(XCamera):
             def _notify(*_):
                 self.play = previous_play_state
                 if success:
+                    Logger.info(f"SafeXCamera: Saved capture to {filename}")
                     self.dispatch("on_picture_taken", filename)
 
             Clock.schedule_once(_notify, 0)
 
         threading.Thread(target=_save, daemon=True).start()
+
+    def _build_filename(self) -> str:
+        directory = self.directory or os.path.join(str(Path.home()), "SmartIDWallet", "captures")
+        os.makedirs(directory, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        return os.path.join(directory, f"{timestamp}.png")
 
 
 class CameraScanScreen(MDScreen, Alignment):
