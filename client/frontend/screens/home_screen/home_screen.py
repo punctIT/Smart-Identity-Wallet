@@ -258,7 +258,6 @@ class HomeScreen(MDScreen, Alignment):
         Window.bind(size=self._update_news_card_widths)
         self._populate_news([])
         self._update_news_card_widths()
-
     def _build_floating_chat_button(self):
         """Creează butonul floating pentru chat care plutește deasupra tuturor elementelor"""
         floating_container = AnchorLayout(

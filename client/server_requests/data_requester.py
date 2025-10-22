@@ -1,11 +1,15 @@
-
-
-
-# "InsertIdenityCard" => IdentityCard::insert(&request, app_state).await,
-# "GetIdenityCard" => IdentityCard::get(&request, app_state).await,
-# "UpdateIdenityCard" => IdentityCard::update(&request, app_state).await,
-# "GetWalletCards" => PersonalDataManager::get_wallet_data(&request, app_state).await,
-#  "News"=>NewsData::get_latest_news(app_state).await,
+#"InsertIdenityCard" => WalletCards::insert("identity_card",&request, app_state).await,
+#"GetIdenityCard" => WalletCards::get("identity_card",&request, app_state).await,
+# "InsertDrivingLicense" => WalletCards::insert("driving_license",&request, app_state).await,
+#"GetDrivingLicense" => WalletCards::get("driving_license",&request, app_state).await,
+#"InsertPassport" => WalletCards::insert("passport",&request, app_state).await,
+#"GetPassport" => WalletCards::get("passport",&request, app_state).await,
+#"InsertVehicleRegistration" => WalletCards::insert("vehicle_registration",&request, app_state).await,
+#"GetVehicleRegistration" => WalletCards::get("vehicle_registration",&request, app_state).await,
+#"InsertInsuranceAuto" => WalletCards::insert("insurance_auto",&request, app_state).await,
+#"GetInsuranceAuto" => WalletCards::get("insurance_auto",&request, app_state).await,
+#"GetWalletCards" => PersonalDataManager::get_wallet_data(&request, app_state).await,
+# "News"=>NewsData::get_latest_news(app_state).await,
 
 class DataRequester:
     _MOCK_WALLET_CARDS = [

@@ -130,6 +130,14 @@ class ChatScreen(MDScreen):
     
     def on_pre_enter(self, *args):
         """Called when entering the screen"""
+        data =  {
+            "title": "Permis conducere",
+            "subtitle": "Categoria B",
+            "status": "Reinnoit recent",
+            "number": "B1234567",
+            "expiry": "21.11.2027",
+        }
+        self.server.sent_specific_data("InsertDrivingLicense",data)
         self.chat_layout.clear_widgets()
         self.add_message("Assistant", "Bună! Sunt aici să te ajut. Întreabă-mă orice!", is_user=False)
         Clock.schedule_once(self.scroll_to_top_delayed, 0.2)
