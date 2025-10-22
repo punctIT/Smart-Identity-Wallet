@@ -1,32 +1,13 @@
-from kivy.uix.screenmanager import Screen
-
-from frontend.screens.widgets.add_document_card_mixin import AddDocumentCardMixin
-from frontend.screens.widgets.custom_buttons import CustomButton
-from frontend.screens.widgets.custom_input import CustomInput
-from frontend.screens.widgets.custom_label import CustomLabels
-from frontend.screens.widgets.document_list import DocumentListMixin
+from frontend.screens.home_screen.document_screens_base import BaseDocumentsScreen
 
 
-class TransportDocsScreen(
-    AddDocumentCardMixin,
-    DocumentListMixin,
-    Screen,
-    CustomLabels,
-    CustomButton,
-    CustomInput,
-):
-    TITLE_TEXT = "Documente transport"
-    SUBTITLE_TEXT = "Abonamentele și biletele active sunt afișate aici."
-    EMPTY_TEXT = "Nu există documente de transport momentan."
-
-    def __init__(self, server=None, **kwargs):
-        Screen.__init__(self, name="transport_docs", **kwargs)
-        self.setup_document_screen(
-            server=server,
-            title_text=self.TITLE_TEXT,
-            subtitle_text=self.SUBTITLE_TEXT,
-            empty_text=self.EMPTY_TEXT,
-        )
+class TransportDocsScreen(BaseDocumentsScreen):
+    screen_name = "transport_docs"
+    title_text = "Documente transport"
+    subtitle_text = "Abonamentele și biletele active sunt afișate aici."
+    empty_text = "Nu există documente de transport momentan."
+    document_categories = ("transport_docs", "transport", "transit")
+    require_category_match = True
 
 
 __all__ = ["TransportDocsScreen"]
