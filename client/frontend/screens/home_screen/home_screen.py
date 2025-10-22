@@ -1,42 +1,49 @@
-from kivy.core.window import Window
 from kivy.app import App
-from kivy.graphics import Color, RoundedRectangle, Rectangle, Ellipse
-from kivy.graphics.texture import Texture
-from kivy.metrics import dp, sp
+from kivy.core.window import Window
+from kivy.logger import Logger
+from kivy.metrics import dp
 from kivy.uix.anchorlayout import AnchorLayout
-from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.gridlayout import GridLayout
-from kivy.uix.label import Label
-from kivy.uix.scrollview import ScrollView
-from kivy.uix.screenmanager import Screen
 from kivy.uix.widget import Widget
-from kivy.uix.behaviors import ButtonBehavior
-from kivy.uix.carousel import Carousel
+from kivy.utils import get_color_from_hex
 
+from kivymd.uix.boxlayout import MDBoxLayout
+from kivymd.uix.button import MDFlatButton, MDFloatingActionButton
+from kivymd.uix.card import MDCard
+from kivymd.uix.carousel import MDCarousel
+from kivymd.uix.gridlayout import MDGridLayout
+from kivymd.uix.label import MDLabel
+from kivymd.uix.screen import MDScreen
+from kivymd.uix.scrollview import MDScrollView
 
-
-from frontend.screens.widgets.custom_label import ScalableLabel
-from frontend.screens.widgets.custom_background import GradientBackground
-from frontend.screens.widgets.custom_buttons import CustomButton
 from frontend.screens.widgets.custom_alignment import Alignment
-from frontend.screens.widgets.custom_cards import CustomCards
-from frontend.screens.widgets.custom_label import LinkLabel
 
 # ------------------------ THEME ------------------------
-BG_TOP      = (0.06, 0.07, 0.10, 1)
-BG_BOTTOM   = (0.03, 0.05, 0.09, 1)
-CARD_BG     = (0.13, 0.15, 0.20, 1)
-CARD_STROKE = (1, 1, 1, 0.06)
+BG_BOTTOM = (0.03, 0.05, 0.09, 1)
+CARD_BG = (0.13, 0.15, 0.20, 1)
+CARD_STROKE = (1, 1, 1, 0.08)
 
-TEXT_PRIMARY   = (0.92, 0.95, 1.00, 1)
+TEXT_PRIMARY = (0.92, 0.95, 1.00, 1)
 TEXT_SECONDARY = (0.70, 0.76, 0.86, 1)
-ACCENT         = (0.25, 0.60, 1.00, 1)   # blue
-ACCENT_SOFT    = (0.12, 0.35, 0.70, 1)
-ACCENT_YELLOW  = "#FAE629"  
+ACCENT = (0.25, 0.60, 1.00, 1)
+ACCENT_YELLOW = get_color_from_hex("FAE629")
 
-CARD_DARKER    = (0.11, 0.13, 0.18, 1)
-
-Window.clearcolor = BG_BOTTOM
+DEFAULT_NEWS_ITEMS = [
+    {
+        "Title": "Organizează documentele rapid",
+        "Description": "Importă actele importante în categorii dedicate și găsește-le la nevoie.",
+        "accent": ACCENT,
+    },
+    {
+        "Title": "Scanare instant",
+        "Description": "Folosește butonul „Scanează” pentru a digitaliza documente fără a părăsi aplicația.",
+        "accent": get_color_from_hex("5C7AEA"),
+    },
+    {
+        "Title": "Securitate înainte de toate",
+        "Description": "Datele tale sunt stocate local. Nu uita să faci backup periodic.",
+        "accent": get_color_from_hex("50C878"),
+    },
+]
 
 CATEGORY_TILE_CONFIG = [
     {
@@ -64,328 +71,426 @@ CATEGORY_TILE_CONFIG = [
 CATEGORY_SCREEN_NAMES = [item["screen_name"] for item in CATEGORY_TILE_CONFIG]
 
 
-
-
-
-# --- New Clickable Category Tile Class ---
-class CategoryTile(ButtonBehavior, AnchorLayout):
-    def __init__(self, sm, screen_name, title, subtitle, **kwargs):
+class NewsCard(MDCard):
+    def __init__(self, title: str, body: str, accent_color=ACCENT, **kwargs):
         super().__init__(**kwargs)
-        self.sm = sm if hasattr(sm, "has_screen") else None
-        self.screen_name = screen_name
-        self.size_hint = (1, None)
-        self.height = dp(190)
-        
-        # --- DRAWING / APPEARANCE LOGIC ---
-        with self.canvas.before:
-            Color(*CARD_BG)
-            self._bg = RoundedRectangle(radius=[dp(18)]*4, pos=self.pos, size=self.size)
-        with self.canvas.after:
-            Color(*CARD_STROKE)
-            self._stroke = RoundedRectangle(radius=[dp(18)]*4, pos=self.pos, size=self.size)
-        
-        def _sync(*_):
-            self._bg.pos = self.pos
-            self._bg.size = self.size
-            self._stroke.pos = (self.x - .5, self.y - .5)
-            self._stroke.size = (self.width + 1, self.height + 1)
-        self.bind(pos=_sync, size=_sync)
-
-        inner = BoxLayout(orientation='vertical', padding=[dp(16)]*2, spacing=dp(8)) 
-
-        header = BoxLayout(orientation='vertical', size_hint=(1, None), spacing=dp(4))
-        header.bind(minimum_height=header.setter("height"))
-
-        words = [word for word in title.split() if word]
-        is_single_word = len(words) <= 1
-        display_title = " ".join(words) if is_single_word else "\n".join(words)
-
-        title_label = ScalableLabel(
-            text=f"[b]{display_title}[/b]",
-            markup=True,
-            color=ACCENT,
-            halign='center',
-            valign='middle',
-            max_font_size_sp=sp(30),
-            padding_dp=dp(5),
-            size_hint=(1, None)
-        )
-        title_label.bind(size=lambda lbl, size: setattr(lbl, "text_size", (size[0], None)))
-        header.add_widget(title_label)
-
-        subtitle = Label(
-            text=subtitle,
-            color=TEXT_SECONDARY,
-            font_size=sp(15),
-            halign='center',
-            valign='middle',
-            size_hint=(1, None),
-            height=dp(20)
-        )
-        subtitle.bind(
-            size=lambda lbl, size: setattr(lbl, "text_size", (size[0], None)),
-            texture_size=lambda lbl, *_: setattr(lbl, "height", max(lbl.texture_size[1], dp(20)))
-        )
-        header.add_widget(subtitle)
-
-        inner.add_widget(Widget(size_hint_y=1))
-        inner.add_widget(header)
-        inner.add_widget(Widget(size_hint_y=1))
-
-        self.add_widget(inner)
-
-    # --- CLICK BEHAVIOR ---
-    def on_release(self):
-        print(self.screen_name)
-        self.sm.current=self.screen_name
-
-
-class FloatingScanButton(ButtonBehavior, AnchorLayout):
-    def __init__(self, text, text_color, bg_color, on_activate, **kwargs):
-        super().__init__(**kwargs)
+        self.orientation = "vertical"
+        self.padding = dp(18)
+        self.spacing = dp(8)
         self.size_hint = (None, None)
-        self.size = (dp(72), dp(72))
-        self._on_activate = on_activate
-        with self.canvas.before:
-            Color(*bg_color)
-            self._circle = Ellipse(size=self.size, pos=self.pos)
+        self.height = dp(150)
+        self.radius = [dp(20)]
+        self.ripple_behavior = False
+        self.md_bg_color = CARD_BG
+        self.line_color = CARD_STROKE
+        self.shadow_softness = 10
+        self.shadow_offset = (0, -4)
 
-        def _sync(*_):
-            self._circle.size = self.size
-            self._circle.pos = self.pos
+        self._title = MDLabel(
+            text=title,
+            font_style="H6",
+            theme_text_color="Custom",
+            text_color=accent_color,
+            halign="center",
+            adaptive_height=True,
+            bold=True,
+        )
+        self._title.bind(width=self._sync_text_width)
 
-        self.bind(size=_sync, pos=_sync)
-        self.add_widget(Label(text=text, markup=True, color=text_color, font_size=sp(14)))
+        self._body = MDLabel(
+            text=body,
+            font_style="Body2",
+            theme_text_color="Custom",
+            text_color=TEXT_SECONDARY,
+            halign="left",
+            adaptive_height=True,
+        )
+        self._body.bind(width=self._sync_text_width)
 
-    def on_release(self):
-        if callable(self._on_activate):
-            self._on_activate()
-    
-class HomeScreen(Screen, CustomButton, CustomCards, Alignment):
-    def on_enter(self, *args):
-        data=self.server.get_specific_data("News")
-        if data!=None:
-            if data['success']==True:
-                news = data['data']['news']
-                if len(news) !=0:
-                    self.main_carousel.clear_widgets()
-                    self.dots.clear_widgets()
-                    self.dots.add_widget(Widget())
-                for new in news:
-                    self.dots.add_widget(self.make_dot(0))
-                    self.main_carousel.add_widget(self.create_news_card(
-                        new['Title'], new['Description'], "#FFFFFF"
-                    ))
-                self.dots.add_widget(Widget())
-       
-        
-       
+        self.add_widget(self._title)
+        self.add_widget(self._body)
+
+    @staticmethod
+    def _sync_text_width(label, value):
+        label.text_size = (value, None)
+
+    def update_width(self, width: float) -> None:
+        self.width = width
+
+
+class HomeNewsCarousel(MDCarousel):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.parent_scroll = None
+        self._lock_scroll = False
+        self.ignore_perpendicular_swipes = True
+
+    def on_touch_down(self, touch):
+        inside = self.collide_point(*touch.pos)
+        if inside:
+            touch.ud["home_carousel_start"] = touch.pos
+            self._lock_scroll = True
+            if self.parent_scroll:
+                self.parent_scroll.do_scroll_y = False
+        return super().on_touch_down(touch)
+
+    def on_touch_move(self, touch):
+        if self._lock_scroll and "home_carousel_start" in touch.ud:
+            start_x, start_y = touch.ud["home_carousel_start"]
+            dx = abs(touch.x - start_x)
+            dy = abs(touch.y - start_y)
+            if dy > dx and dy > dp(6):
+                if self.parent_scroll:
+                    self.parent_scroll.do_scroll_y = True
+                self._lock_scroll = False
+        return super().on_touch_move(touch)
+
+    def on_touch_up(self, touch):
+        if self.parent_scroll:
+            self.parent_scroll.do_scroll_y = True
+        self._lock_scroll = False
+        return super().on_touch_up(touch)
+
+
+class CategoryCard(MDCard):
+    def __init__(self, title: str, subtitle: str, screen_name: str, on_navigate, **kwargs):
+        super().__init__(**kwargs)
+        self.screen_name = screen_name
+        self._on_navigate = on_navigate
+        self.orientation = "vertical"
+        self.padding = dp(18)
+        self.spacing = dp(8)
+        self.size_hint = (1, None)
+        self.height = dp(160)
+        self.radius = [dp(20)]
+        self.ripple_behavior = True
+        self.md_bg_color = CARD_BG
+        self.line_color = CARD_STROKE
+
+        spacer_top = Widget(size_hint_y=1)
+        spacer_bottom = Widget(size_hint_y=1)
+
+        title_label = MDLabel(
+            text=title,
+            font_style="H6",
+            theme_text_color="Custom",
+            text_color=ACCENT,
+            halign="center",
+            adaptive_height=True,
+            bold=True,
+        )
+        title_label.bind(width=self._sync_text_width)
+
+        subtitle_label = MDLabel(
+            text=subtitle,
+            font_style="Body2",
+            theme_text_color="Custom",
+            text_color=TEXT_SECONDARY,
+            halign="center",
+            adaptive_height=True,
+        )
+        subtitle_label.bind(width=self._sync_text_width)
+
+        self.add_widget(spacer_top)
+        self.add_widget(title_label)
+        self.add_widget(subtitle_label)
+        self.add_widget(spacer_bottom)
+
+    @staticmethod
+    def _sync_text_width(label, value):
+        label.text_size = (value, None)
+
+    def on_release(self, *args):  # noqa: D401
+        if callable(self._on_navigate):
+            self._on_navigate(self.screen_name)
+
+
+class HomeScreen(MDScreen, Alignment):
     def __init__(self, sm=None, server=None, **kwargs):
         super().__init__(name="home", **kwargs)
         self.server = server
-        self.user_info = {}
-        self.sm = sm if hasattr(sm, "has_screen") else None 
+        self.sm = sm if hasattr(sm, "has_screen") else None
         self._back_binding = False
-        self.add_widget(GradientBackground())
-        root = BoxLayout(orientation='vertical', padding=[dp(16), dp(4), dp(16), dp(4)], spacing=dp(8))
+        self.news_carousel = None
+        self.dot_container = None
+        self._news_cards = []
 
+        app = App.get_running_app()
+        if app and hasattr(app, "theme_cls"):
+            app.theme_cls.theme_style = "Dark"
+            app.theme_cls.primary_palette = "Blue"
+
+        Window.clearcolor = BG_BOTTOM
+
+        root = MDBoxLayout(
+            orientation="vertical",
+            spacing=dp(16),
+            padding=[
+                dp(16),
+                self._safe_top_padding(16),
+                dp(16),
+                self._safe_bottom_padding(16),
+            ],
+        )
         self.add_widget(root)
 
-        # TOP BAR
-        topbar = BoxLayout(
-            orientation='vertical', 
-            size_hint_y=0.25,  # 25% pentru main content
-            spacing=dp(2)
+        root.add_widget(self._build_header())
+        root.add_widget(self._build_scroll_area())
+        root.add_widget(self._build_bottom_bar())
+
+        if self.news_carousel:
+            self.news_carousel.bind(index=self._refresh_dots)
+
+        Window.bind(size=self._update_news_card_widths)
+        self._populate_news([])
+        self._update_news_card_widths()
+
+    # ------------------------------------------------------------------
+    # Layout builders
+    # ------------------------------------------------------------------
+    def _build_header(self):
+        container = MDBoxLayout(orientation="vertical", spacing=dp(4), adaptive_height=True)
+
+        title = MDLabel(
+            text="Smart ID Wallet",
+            font_style="H4",
+            theme_text_color="Custom",
+            text_color=TEXT_PRIMARY,
+            halign="left",
+            adaptive_height=True,
+            bold=True,
         )
-        title = Label(text='[b][color=#33A3FF]Smart ID Wallet[/color][/b]', markup=True,
-                      halign='left', valign='middle', color=TEXT_PRIMARY, font_size=sp(32))
-        title.bind(size=lambda l, s: setattr(l, 'text_size', s))
-        
-        self.main_container = BoxLayout(
-            orientation='vertical', 
-            size_hint_y=0.25,  # 25% pentru main content
-            spacing=dp(10)
+        title.bind(width=self._sync_text_width)
+
+        subtitle = MDLabel(
+            text="Portofel digital pentru documentele tale esențiale.",
+            font_style="Body1",
+            theme_text_color="Custom",
+            text_color=TEXT_SECONDARY,
+            halign="left",
+            adaptive_height=True,
         )
-        
-        sv = ScrollView(size_hint=(1, 0.75))
-        
-        topbar.add_widget(title)
-    
-        root.add_widget(topbar)
+        subtitle.bind(width=self._sync_text_width)
 
-     
-      
-        self.main_container.bind(minimum_height=self.main_container.setter('height'))
+        container.add_widget(title)
+        container.add_widget(subtitle)
+        return container
 
+    def _build_scroll_area(self):
+        scroll = MDScrollView(size_hint=(1, 1))
+        content = MDBoxLayout(orientation="vertical", spacing=dp(16), size_hint_y=None, adaptive_height=True)
+        scroll.add_widget(content)
 
-       
-        carousel_row = AnchorLayout(size_hint_y=None, height=dp(150))
+        # News carousel
+        carousel_section = MDBoxLayout(orientation="vertical", spacing=dp(6), size_hint_y=None, adaptive_height=True)
 
-        self.main_carousel = Carousel(
-            direction='right',
-            anim_move_duration=0.2,
-            size_hint=(1, 1)
+        carousel_holder = AnchorLayout(size_hint=(1, None), height=dp(180))
+        self.news_carousel = HomeNewsCarousel(
+            direction="right",
+            anim_move_duration=0.12,
+            anim_cancel_duration=0.12,
+            loop=True,
         )
+        self.news_carousel.scroll_distance = dp(40)
+        self.news_carousel.scroll_timeout = 180
+        self.news_carousel.parent_scroll = scroll
+        carousel_holder.add_widget(self.news_carousel)
+        carousel_section.add_widget(carousel_holder)
 
-        self.main_carousel.add_widget(self.create_news_card(
-                "Nimic nou", "nu exista noutati", "#FFFFFF"
-        ))
+        dots_holder = AnchorLayout(size_hint=(1, None), height=dp(20))
+        self.dot_container = MDBoxLayout(orientation="horizontal", spacing=dp(3), padding=(0, 0, 0, 0), adaptive_size=True)
+        dots_holder.add_widget(self.dot_container)
+        carousel_section.add_widget(dots_holder)
 
-        carousel_row.add_widget(self.main_carousel)
-        self.main_container.add_widget(carousel_row)  # Adaugă în container
+        content.add_widget(carousel_section)
 
-        self.dots = BoxLayout(size_hint_y=None, height=dp(14), spacing=dp(6), padding=[0, 0, 0, dp(4)])
-        self.dot_widgets = [self.make_dot(i == 0) for i in range(len(self.main_carousel.children)+1)]
-
-        self.dots.add_widget(Widget())
-        for dot in self.dot_widgets:
-            self.dots.add_widget(dot)
-        self.dots.add_widget(Widget())
-
-        self.main_container.add_widget(self.dots) 
-
-        def update_dots(instance, value):
-            current_index = self.main_carousel.index
-            for i, dot in enumerate(self.dot_widgets):
-                target_color = (1,1,1,0.9) if i == current_index else (1,1,1,0.25)
-                dot._color_instr.rgba = target_color
-
-        self.main_carousel.bind(index=update_dots)
-        self.main_container.size_hint_y = 0.2 
-        root.add_widget(self.main_container)
-
-       
-        grid_wrap = BoxLayout(orientation='vertical', size_hint_y=None, padding=[0, dp(6), 0, dp(80)])
-        grid_wrap.bind(minimum_height=grid_wrap.setter("height"))
-        grid = GridLayout(cols=2, padding=[dp(8), dp(8)], spacing=dp(14), size_hint_y=None)
-        grid.bind(minimum_height=grid.setter("height"))
-
-        # CATEGORY CARDS (Now using the clickable CategoryTile class)
+        # Categories
+        grid_section = MDBoxLayout(orientation="vertical", spacing=dp(12), size_hint_y=None, adaptive_height=True)
+        grid = MDGridLayout(cols=2, spacing=dp(12), padding=(0, 0, 0, dp(12)), size_hint_y=None, adaptive_height=True)
         for tile in CATEGORY_TILE_CONFIG:
-            grid.add_widget(CategoryTile(
-                sm=self.sm,
-                screen_name=tile["screen_name"],
+            grid.add_widget(CategoryCard(
                 title=tile["title"],
                 subtitle=tile["subtitle"],
+                screen_name=tile["screen_name"],
+                on_navigate=self._go_to_screen,
             ))
+        grid_section.add_widget(grid)
 
-        grid_wrap.add_widget(grid)
-        sv.add_widget(grid_wrap)
-        root.add_widget(sv)
+        content.add_widget(grid_section)
+        content.add_widget(Widget(size_hint_y=None, height=dp(48)))
+        return scroll
 
-        # BOTTOM BAR
-        self._build_bottom_nav()
-
-        def _update_card(*_):
-            # Update size for card based on window size
-            new_width = self._clamp(Window.width * 0.9, dp(280), dp(700))
-            if self.main_carousel:
-                # Iterate through all slides and update the size of the inner card
-                for slide in self.main_carousel.slides:
-                    # Logic to find the inner card within the AnchorLayout
-                    if slide.children and slide.children[0].children:
-                        card_container = slide.children[0]
-                        if card_container.children:
-                            card_widget = card_container.children[0] 
-                            # If card_widget is indeed the card from make_card
-                            if isinstance(card_widget, AnchorLayout):
-                                card_widget.size = (new_width, dp(130))
-
-
-        Window.bind(size=lambda *_: _update_card())
-        _update_card() 
-        
-        self.bind(manager=self._bind_manager)
-        floating_btn_container = AnchorLayout(
-            anchor_x='right', anchor_y='bottom',
-            size_hint=(None, None), 
-            size=(dp(100), dp(140)),  # Lățime fixă pentru container
-            pos_hint={'right': 0.94, 'y': 0.09}  # Poziționare directă
+    def _build_bottom_bar(self):
+        bar = MDBoxLayout(
+            orientation="horizontal",
+            size_hint_y=None,
+            height=dp(76),
+            padding=(dp(12), dp(12)),
+            spacing=dp(12),
         )
 
-        def floating_btn_action():
-            self.sm.current='chat'
+        chat_button = MDFlatButton(
+            text="AI Chat Bot",
+            theme_text_color="Custom",
+            text_color=ACCENT,
+            on_release=lambda *_: self._go_to_screen("chat"),
+        )
+        bar.add_widget(chat_button)
+        bar.add_widget(Widget())
 
-        floating_btn = FloatingScanButton(
-            text="[b]+[/b]",
+        fab_column = MDBoxLayout(
+            orientation="vertical",
+            size_hint=(None, None),
+            width=dp(80),
+            adaptive_height=True,
+            spacing=dp(6),
+        )
+
+        fab = MDFloatingActionButton(
+            icon="camera",
+            md_bg_color=ACCENT_YELLOW,
             text_color=(0, 0, 0, 1),
-            bg_color=ACCENT_YELLOW,
-            on_activate=floating_btn_action
+            elevation=12,
+        )
+        fab.bind(on_release=lambda *_: self._go_to_screen("camera_scan"))
+
+        fab_label = MDLabel(
+            text="Scanează",
+            font_style="Caption",
+            theme_text_color="Custom",
+            text_color=TEXT_SECONDARY,
+            halign="center",
+            adaptive_height=True,
         )
 
-        floating_btn_container.add_widget(floating_btn)
-        self.add_widget(floating_btn_container)
+        fab_column.add_widget(fab)
+        fab_column.add_widget(fab_label)
+        bar.add_widget(fab_column)
 
+        return bar
+
+    @staticmethod
+    def _sync_text_width(label, value):
+        label.text_size = (value, None)
+
+    # ------------------------------------------------------------------
+    # News feed helpers
+    # ------------------------------------------------------------------
+    def _populate_news(self, items):
+        if not self.news_carousel:
+            return
+
+        self.news_carousel.clear_widgets()
+        self._news_cards = []
+
+        data_source = items if items else DEFAULT_NEWS_ITEMS
+
+        for entry in data_source:
+            title = entry.get("Title") or "Noutate"
+            description = entry.get("Description") or ""
+            accent = entry.get("accent", ACCENT)
+            self.news_carousel.add_widget(self._build_news_slide(title, description, accent))
+
+        self._refresh_dots()
+
+    def _build_news_slide(self, title, description, accent_color):
+        slide = AnchorLayout(anchor_x="center", anchor_y="center")
+        card = NewsCard(title, description, accent_color=accent_color)
+        card.update_width(self._news_card_width())
+        self._news_cards.append(card)
+        slide.add_widget(card)
+        return slide
+
+    def _refresh_dots(self, *_):
+        if not self.dot_container or not self.news_carousel:
+            return
+
+        self.dot_container.clear_widgets()
+        slides = getattr(self.news_carousel, "slides", [])
+        if not slides:
+            return
+
+        current_index = self.news_carousel.index
+        for idx in range(len(slides)):
+            active = idx == current_index
+            self.dot_container.add_widget(self._build_dot(active))
+
+    def _build_dot(self, active):
+        color = ACCENT if active else (1, 1, 1, 0.25)
+        dot = MDLabel(
+            text="•",
+            font_style="H6",
+            theme_text_color="Custom",
+            text_color=color,
+            halign="center",
+        )
+        dot.size_hint = (None, None)
+
+        def _sync_size(instance, _value):
+            instance.size = instance.texture_size
+
+        dot.bind(texture_size=_sync_size)
+        return dot
+
+    def _news_card_width(self):
+        return self._clamp(Window.width * 0.82, dp(260), dp(420))
+
+    def _update_news_card_widths(self, *_):
+        width = self._news_card_width()
+        for card in self._news_cards:
+            card.update_width(width)
+
+    # ------------------------------------------------------------------
+    # Navigation & lifecycle
+    # ------------------------------------------------------------------
     def on_pre_enter(self, *_):
         if not self._back_binding:
             Window.bind(on_keyboard=self._handle_back_gesture)
             self._back_binding = True
+        self._fetch_news()
 
     def on_leave(self, *_):
         if self._back_binding:
             Window.unbind(on_keyboard=self._handle_back_gesture)
             self._back_binding = False
 
-    def _handle_back_gesture(self, window, key, scancode, codepoint, modifier):
-        if key in (27, 1001):  # Android back button or gesture
+    def _handle_back_gesture(self, window, key, scancode, codepoint, modifiers):
+        if key in (27, 1001):
             app = App.get_running_app()
             if app:
                 app.stop()
             return True
         return False
 
-    def _bind_manager(self, *_):
-        if hasattr(self, "manager") and hasattr(self.manager, "has_screen"):
-            self.sm = self.manager
+    def _go_to_screen(self, name):
+        if not self.sm or not self.sm.has_screen(name):
+            return
+        direction_map = {
+            "camera_scan": "up",
+            "chat": "left",
+        }
+        transition = getattr(self.sm, "transition", None)
+        previous_direction = getattr(transition, "direction", None)
+        if transition:
+            transition.direction = direction_map.get(name, "left")
+        self.sm.current = name
+        if transition and previous_direction:
+            transition.direction = previous_direction
 
-    def _build_bottom_nav(self):
-        layer = AnchorLayout(anchor_x='center', anchor_y='bottom', size_hint=(1, None), height=dp(96))
-        self.add_widget(layer)
+    def _fetch_news(self):
+        if not self.server:
+            return
+        try:
+            data = self.server.get_specific_data("News")
+        except Exception as exc:  # noqa: BLE001
+            Logger.warning(f"HomeScreen: failed to fetch news ({exc})")
+            return
 
-        bar = BoxLayout(orientation='horizontal', size_hint=(1, None), height=dp(64),
-                        padding=[dp(16), 0, dp(16), 0], spacing=dp(12))
-        with bar.canvas.before:
-            Color(*(0.08, 0.10, 0.15, 1))
-            bar._bg = Rectangle(pos=bar.pos, size=bar.size)
-        bar.bind(pos=lambda *_: setattr(bar._bg, 'pos', bar.pos),
-                 size=lambda *_: setattr(bar._bg, 'size', bar.size))
+        if not data or not data.get("success"):
+            return
 
-        left = BoxLayout(orientation='vertical', size_hint_x=0.25, padding=[0, dp(6), 0, dp(6)])
-        # left.add_widget(Label(text="🏠", font_size=sp(18), color=TEXT_SECONDARY))
-        # left.add_widget(Label(text="Acasă", font_size=sp(13), color=ACCENT_YELLOW))
-        bar.add_widget(left)
-
-        bar.add_widget(Widget()) 
-
-        right = AnchorLayout(size_hint_x=0.4)
-        
-        bar.add_widget(right)
-
-        layer.add_widget(bar)
-
-        def _go_to_scan():
-            manager = self.manager
-            if manager and manager.has_screen('camera_scan'):
-                transition = getattr(manager, "transition", None)
-                previous_direction = getattr(transition, "direction", None)
-                if transition:
-                    transition.direction = 'up'
-                manager.current = 'camera_scan'
-                if transition and previous_direction:
-                    transition.direction = previous_direction
-
-        fab = FloatingScanButton(
-            text="[b]Scanează[/b]",
-            text_color=(0, 0, 0, 1),
-            bg_color=ACCENT_YELLOW,
-            on_activate=_go_to_scan,
-            anchor_x='center',
-            anchor_y='center'
-        )
-        fab_container = AnchorLayout(anchor_x='center', anchor_y='bottom',
-                                     size_hint=(1, None), height=dp(90), padding=[0, dp(8), 0, dp(8)])
-        fab_container.add_widget(fab)
-        layer.add_widget(fab_container)
+        news_items = data.get("data", {}).get("news") or []
+        self._populate_news(news_items)
 
     def set_server(self, server):
         self.server = server
