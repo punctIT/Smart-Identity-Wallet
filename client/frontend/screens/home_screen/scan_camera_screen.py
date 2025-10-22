@@ -10,11 +10,13 @@ from kivy.utils import platform
 from kivy.graphics import PushMatrix, PopMatrix, Rotate
 from kivy.uix.label import Label
 from kivy.uix.widget import Widget
+from kivy.clock import Clock
 
 from kivymd.uix.boxlayout import MDBoxLayout
 from kivymd.uix.button import MDIconButton
 from kivymd.uix.label import MDLabel
 from kivymd.uix.screen import MDScreen
+from kivymd.uix.dialog import MDDialog
 
 from kivy_garden.xcamera.xcamera import XCamera
 
@@ -56,6 +58,8 @@ class CameraScanScreen(MDScreen, Alignment):
         self._rotation = None
         self.capture_button: Optional[MDIconButton] = None
         self._capture_in_progress = False
+        self._processing_dialog: Optional[MDDialog] = None
+        self._processing_event = None
 
         self._build_ui()
 
@@ -135,6 +139,7 @@ class CameraScanScreen(MDScreen, Alignment):
         super().on_leave()
         if self.camera_view:
             self.camera_view.play = False
+        self._cancel_processing_flow()
 
     # ------------------------------------------------------------------
     # Permissions + camera setup
@@ -193,7 +198,8 @@ class CameraScanScreen(MDScreen, Alignment):
             self._show_camera_error("Camera indisponibilă.\nVerifică permisiunile sau conectează o cameră.")
             return
 
-        camera.size_hint = (1, 1)
+        camera.size_hint = (1,1)
+        camera.size_hint_min = (1,1)
 
         # Rotate 90° left
         with camera.canvas.before:
@@ -218,6 +224,7 @@ class CameraScanScreen(MDScreen, Alignment):
             if platform == "android" and MediaScannerConnection:
                 ctx = PythonActivity.mActivity
                 MediaScannerConnection.scanFile(ctx, [filepath], None, None)
+            self._on_capture_completed(Path(filepath))
 
         camera.bind(on_picture_taken=on_picture)
 
@@ -349,6 +356,40 @@ class CameraScanScreen(MDScreen, Alignment):
         if self.capture_button:
             self.capture_button.disabled = True
         self._capture_in_progress = False
+        self._cancel_processing_flow()
+
+    def _on_capture_completed(self, _filepath: Path) -> None:
+        self._show_processing_dialog()
+        if self._processing_event:
+            self._processing_event.cancel()
+        self._processing_event = Clock.schedule_once(self._finish_processing, 3.0)
+        if self.capture_button:
+            self.capture_button.disabled = True
+
+    def _show_processing_dialog(self) -> None:
+        if self._processing_dialog is None:
+            self._processing_dialog = MDDialog(
+                title="Processing",
+                text="Processing...",
+                auto_dismiss=False,
+            )
+        if not getattr(self._processing_dialog, "_is_open", False):
+            self._processing_dialog.open()
+
+    def _finish_processing(self, *_):
+        self._processing_event = None
+        self._dismiss_processing_dialog()
+        self._go_back()
+
+    def _dismiss_processing_dialog(self) -> None:
+        if self._processing_dialog and getattr(self._processing_dialog, "_is_open", False):
+            self._processing_dialog.dismiss()
+
+    def _cancel_processing_flow(self) -> None:
+        if self._processing_event:
+            self._processing_event.cancel()
+            self._processing_event = None
+        self._dismiss_processing_dialog()
 
     def _remove_default_capture_button(self) -> None:
         """Remove the stock XCamera capture button so our custom control is the only one."""
@@ -372,6 +413,7 @@ class CameraScanScreen(MDScreen, Alignment):
         if self.capture_button:
             self.capture_button.disabled = True
         self._capture_in_progress = False
+        self._cancel_processing_flow()
 
     # ------------------------------------------------------------------
     # Capture actions
