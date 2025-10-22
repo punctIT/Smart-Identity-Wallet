@@ -12,6 +12,7 @@ from kivymd.uix.card import MDCard
 from kivymd.uix.label import MDLabel
 from kivymd.uix.screen import MDScreen
 from kivymd.uix.scrollview import MDScrollView
+from kivymd.uix.gridlayout import MDGridLayout
 
 from frontend.screens.widgets.custom_alignment import Alignment
 
@@ -426,14 +427,16 @@ class BaseDocumentsScreen(MDScreen, Alignment):
         self.root_layout.add_widget(self.scroll_view)
 
         bottom_padding = self._scale_dp(self.CARD_SPACING * 2) + self._safe_bottom_padding(24)
-        self.cards_container = MDBoxLayout(
-            orientation="vertical",
+        self.cards_container = MDGridLayout(
+            cols=1,
             size_hint_y=None,
             adaptive_height=True,
             padding=(0, self._scale_dp(6), 0, bottom_padding),
             spacing=self._scale_dp(self.CARD_SPACING),
         )
-        self.cards_container.bind(minimum_height=self.cards_container.setter("height"))
+        self.cards_container.bind(
+            minimum_height=self.cards_container.setter("height")
+        )
         self.cards_container.bind(width=lambda _, width: self._sync_empty_width(width))
         self.scroll_view.add_widget(self.cards_container)
 
@@ -516,9 +519,9 @@ class BaseDocumentsScreen(MDScreen, Alignment):
     def _wrap_row(self, card: MDCard) -> AnchorLayout:
         row = self.center_row(
             card,
-            rel_width=0.92,
-            min_w=self._scale_dp(260),
-            max_w=self._scale_dp(560),
+            rel_width=0.98,
+            min_w=self._scale_dp(200),
+            max_w=self._scale_dp(640),
         )
         row.padding = [0, self._scale_dp(4), 0, self._scale_dp(4)]
         card.bind(
