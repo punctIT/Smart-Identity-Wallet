@@ -1,9 +1,9 @@
-from kivy.app import App
 from kivy.uix.screenmanager import ScreenManager, SlideTransition
 from kivy.core.window import Window
 from kivy.vector import Vector
 from kivy.utils import platform
 
+from kivymd.app import MDApp
 
 from server_requests.server_connect import ServerConnection
 from frontend.screens.home_screen.home_screen import HomeScreen
@@ -64,11 +64,12 @@ class SwipeScreenManager(ScreenManager):
         return super().on_touch_up(touch)
 
 
-class SmartIdApp(App):
+class SmartIdApp(MDApp):
     def build(self):
-       
         self.title = 'Smart Identity Wallet'
         self.server = ServerConnection(size_hint_y=0.8)
+        self.theme_cls.theme_style = "Dark"
+        self.theme_cls.primary_palette = "Blue"
                 
         sm = SwipeScreenManager()
         sm.add_widget(ServerSetupScreen(self.server))
