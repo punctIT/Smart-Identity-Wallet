@@ -6,6 +6,7 @@ from kivy.app import App
 from kivy.logger import Logger
 from kivy.metrics import dp
 from kivy.utils import platform
+from kivy.graphics import PushMatrix, PopMatrix, Rotate  # ✅ added for rotation
 
 from kivymd.uix.boxlayout import MDBoxLayout
 from kivymd.uix.button import MDIconButton
@@ -23,18 +24,30 @@ try:  # pragma: no cover - Android specific imports
             check_permission,
             request_permissions,
         )
-    else:  # pragma: no cover
+        from android.storage import primary_external_storage_path
+        from jnius import autoclass
+
+        # MediaScannerConnection helps refresh Gallery immediately
+        MediaScannerConnection = autoclass('android.media.MediaScannerConnection')
+        PythonActivity = autoclass('org.kivy.android.PythonActivity')
+    else:
         Permission = None
         check_permission = None
         request_permissions = None
+        primary_external_storage_path = None
+        MediaScannerConnection = None
+        PythonActivity = None
 except ImportError:  # pragma: no cover
     Permission = None
     check_permission = None
     request_permissions = None
+    primary_external_storage_path = None
+    MediaScannerConnection = None
+    PythonActivity = None
 
 
 class CameraScanScreen(MDScreen, Alignment):
-    """Minimal camera view that requests runtime permissions when needed."""
+    """Camera screen that saves photos in a public folder and rotates the preview 90° left."""
 
     def __init__(self, server=None, **kwargs):
         super().__init__(name="camera_scan", **kwargs)
@@ -100,10 +113,12 @@ class CameraScanScreen(MDScreen, Alignment):
     # ------------------------------------------------------------------
     def _ensure_camera_ready(self) -> None:
         if platform == "android" and Permission and request_permissions and check_permission:
-            if not check_permission(Permission.CAMERA):
+            needed = [Permission.CAMERA, Permission.WRITE_EXTERNAL_STORAGE]
+            granted = all(check_permission(p) for p in needed)
+            if not granted:
                 if not self._awaiting_permission:
                     self._awaiting_permission = True
-                    request_permissions([Permission.CAMERA], self._on_permission_result)
+                    request_permissions(needed, self._on_permission_result)
                 return
 
         self._awaiting_permission = False
@@ -119,7 +134,7 @@ class CameraScanScreen(MDScreen, Alignment):
             if self.camera_view:
                 self.camera_view.play = True
         else:
-            Logger.warning("CameraScanScreen: Camera permission denied by user.")
+            Logger.warning("CameraScanScreen: Camera or storage permission denied by user.")
 
     def _init_camera_widget(self) -> None:
         if not self.camera_holder or self.camera_view:
@@ -131,6 +146,29 @@ class CameraScanScreen(MDScreen, Alignment):
             directory=str(capture_dir),
         )
 
+        # ✅ Rotate camera view 90° left
+        with camera.canvas.before:
+            PushMatrix()
+            self._rotation = Rotate(angle=-90, origin=camera.center)
+        with camera.canvas.after:
+            PopMatrix()
+
+        # ✅ Keep rotation origin in sync with widget size/pos
+        def _update_rotation_origin(*_):
+            if hasattr(self, "_rotation"):
+                self._rotation.origin = camera.center
+
+        camera.bind(pos=_update_rotation_origin, size=_update_rotation_origin)
+
+        # Hook into XCamera's on_picture_taken event to refresh Gallery
+        def on_picture(instance, filepath):
+            Logger.info(f"CameraScanScreen: Saved photo -> {filepath}")
+            if platform == "android" and MediaScannerConnection:
+                ctx = PythonActivity.mActivity
+                MediaScannerConnection.scanFile(ctx, [filepath], None, None)
+
+        camera.bind(on_picture_taken=on_picture)
+
         self.camera_view = camera
         self.camera_holder.add_widget(self.camera_view)
 
@@ -138,13 +176,19 @@ class CameraScanScreen(MDScreen, Alignment):
     # Navigation & filesystem helpers
     # ------------------------------------------------------------------
     def _build_capture_dir(self) -> Path:
-        app = App.get_running_app()
-        if app and hasattr(app, "user_data_dir"):
-            base = Path(app.user_data_dir)
-        else:
+        """Save photos in a public folder on Android (visible in Gallery)."""
+        try:
+            if platform == "android" and primary_external_storage_path:
+                base = Path(primary_external_storage_path()) / "SmartIDWallet"
+            else:
+                base = Path.home() / "SmartIDWallet"
+        except Exception as e:
+            Logger.warning(f"CameraScanScreen: Failed to get external path: {e}")
             base = Path.home() / "SmartIDWallet"
+
         target = base / "captures"
         target.mkdir(parents=True, exist_ok=True)
+        Logger.info(f"CameraScanScreen: Capture directory = {target}")
         return target
 
     def _go_back(self) -> None:
