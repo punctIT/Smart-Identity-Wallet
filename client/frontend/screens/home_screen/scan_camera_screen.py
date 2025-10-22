@@ -9,6 +9,7 @@ from kivy.metrics import dp
 from kivy.utils import platform
 from kivy.graphics import PushMatrix, PopMatrix, Rotate
 from kivy.uix.label import Label
+from kivy.uix.widget import Widget
 
 from kivymd.uix.boxlayout import MDBoxLayout
 from kivymd.uix.button import MDIconButton
@@ -55,6 +56,8 @@ class CameraScanScreen(MDScreen, Alignment):
         self._awaiting_permission = False
         self._camera_index: Optional[int] = None
         self._rotation = None
+        self.capture_button: Optional[MDIconButton] = None
+        self._capture_in_progress = False
 
         self._build_ui()
 
@@ -90,12 +93,34 @@ class CameraScanScreen(MDScreen, Alignment):
         self.camera_holder = MDBoxLayout()
         root.add_widget(self.camera_holder)
 
+        controls = MDBoxLayout(
+            orientation="horizontal",
+            size_hint_y=None,
+            height=dp(72),
+            padding=(dp(12), dp(8)),
+        )
+        controls.add_widget(Widget())
+        capture_btn = MDIconButton(
+            icon="camera",
+            theme_icon_color="Custom",
+            icon_color=(1, 1, 1, 0.95),
+            icon_size=dp(48),
+            disabled=True,
+            on_release=lambda *_: self.capture_photo(),
+        )
+        self.capture_button = capture_btn
+        controls.add_widget(capture_btn)
+        controls.add_widget(Widget())
+        root.add_widget(controls)
+
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
     def on_pre_enter(self, *_):
         super().on_pre_enter()
         self._ensure_camera_ready()
+        if self.camera_view:
+            self.camera_view.play = True
 
     def on_leave(self, *_):
         super().on_leave()
@@ -107,7 +132,10 @@ class CameraScanScreen(MDScreen, Alignment):
     # ------------------------------------------------------------------
     def _ensure_camera_ready(self) -> None:
         if platform == "android" and Permission and request_permissions and check_permission:
-            needed = [Permission.CAMERA, Permission.READ_MEDIA_IMAGES]
+            needed = [Permission.CAMERA]
+            read_images = getattr(Permission, "READ_MEDIA_IMAGES", None)
+            if read_images:
+                needed.append(read_images)
             # fallback for older APIs
             if hasattr(Permission, "WRITE_EXTERNAL_STORAGE"):
                 needed.append(Permission.WRITE_EXTERNAL_STORAGE)
@@ -174,6 +202,10 @@ class CameraScanScreen(MDScreen, Alignment):
         # When a picture is taken, rescan so Gallery sees it
         def on_picture(_, filepath):
             Logger.info(f"CameraScanScreen: Saved photo -> {filepath}")
+            print(f"[Camera] photo saved -> {filepath}", flush=True)
+            self._capture_in_progress = False
+            if self.capture_button:
+                self.capture_button.disabled = False
             if platform == "android" and MediaScannerConnection:
                 ctx = PythonActivity.mActivity
                 MediaScannerConnection.scanFile(ctx, [filepath], None, None)
@@ -189,6 +221,9 @@ class CameraScanScreen(MDScreen, Alignment):
             self._camera_error_label = None
 
         camera.play = True
+        if self.capture_button:
+            self.capture_button.disabled = False
+        self._capture_in_progress = False
 
     # ------------------------------------------------------------------
     # Filesystem helpers
@@ -277,6 +312,41 @@ class CameraScanScreen(MDScreen, Alignment):
             self._camera_error_label.bind(size=lambda lbl, s: setattr(lbl, "text_size", s))
         if not self._camera_error_label.parent:
             self.camera_holder.add_widget(self._camera_error_label)
+        if self.capture_button:
+            self.capture_button.disabled = True
+        self._capture_in_progress = False
+
+    # ------------------------------------------------------------------
+    # Capture actions
+    # ------------------------------------------------------------------
+    def capture_photo(self) -> None:
+        """Trigger a capture and log to terminal."""
+        if self._capture_in_progress:
+            Logger.info("CameraScanScreen: Capture already in progress.")
+            return
+        if not self.camera_view:
+            Logger.warning("CameraScanScreen: Capture requested without an active camera.")
+            self._show_camera_error("Camera indisponibilă.")
+            return
+
+        Logger.info("CameraScanScreen: capture requested, shooting photo.")
+        print("[Camera] capture requested", flush=True)
+        self._capture_in_progress = True
+        if self.capture_button:
+            self.capture_button.disabled = True
+
+        try:
+            self.camera_view.shoot()
+        except Exception as exc:
+            Logger.error(f"CameraScanScreen: Failed to shoot photo: {exc}")
+            print(f"[Camera] capture failed: {exc}", flush=True)
+            self._capture_in_progress = False
+            if self.capture_button:
+                self.capture_button.disabled = False
+            return
+
+        if self.capture_button:
+            self.capture_button.disabled = True
 
     def _go_back(self) -> None:
         manager = getattr(self, "manager", None)
