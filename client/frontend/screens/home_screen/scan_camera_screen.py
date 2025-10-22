@@ -317,7 +317,7 @@ class CameraScanScreen(MDScreen, Alignment):
                     if android_camera:
                         try:
                             params = android_camera.getParameters()
-                            params.setRotation(-90)
+                            params.setRotation(90)
                             android_camera.setParameters(params)
                         except Exception as exc:  # noqa: BLE001
                             Logger.warning(f"CameraScanScreen: unable to adjust camera rotation: {exc}")
