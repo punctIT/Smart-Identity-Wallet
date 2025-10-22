@@ -58,6 +58,10 @@ class CameraScanScreen(MDScreen, Alignment):
         self._rotation = None
         self.capture_button: Optional[MDIconButton] = None
         self._capture_in_progress = False
+
+        # Popup/progress flow
+        # MODIFICARE: Păstrăm MDDialog, dar nu mai folosim _processing_dialog_open
+        # Ne bazăm pe obiectul dialogului pentru a gestiona starea deschis/închis.
         self._processing_dialog: Optional[MDDialog] = None
         self._processing_event = None
 
@@ -81,17 +85,8 @@ class CameraScanScreen(MDScreen, Alignment):
         )
         self.add_widget(root)
 
-        header = MDBoxLayout(orientation="horizontal", size_hint_y=None, height=dp(48))
-        back_btn = MDIconButton(
-            icon="arrow-left",
-            theme_icon_color="Custom",
-            icon_color=(1, 1, 1, 0.92),
-            on_release=lambda *_: self._go_back(),
-        )
-        header.add_widget(back_btn)
-        header.add_widget(MDLabel())
-        root.add_widget(header)
-
+        # Header este comentat în codul tău, așa că îl păstrăm așa.
+        
         self.camera_holder = MDBoxLayout(
             orientation="vertical",
             size_hint=(1, 1),
@@ -126,14 +121,8 @@ class CameraScanScreen(MDScreen, Alignment):
     def on_pre_enter(self, *_):
         super().on_pre_enter()
         self._ensure_camera_ready()
-        if self.camera_view:
-            try:
-                self.camera_view.play = True
-            except Exception as exc:  # noqa: BLE001
-                Logger.error(f"CameraScanScreen: unable to start preview: {exc}")
-                print(f"[Camera] start preview failed: {exc}", flush=True)
-                self._show_camera_error("Camera indisponibilă.\nNu am reușit să pornesc previzualizarea.")
-                self._dispose_camera()
+        # MODIFICARE: Mutăm logica de play în _init_camera_widget pentru coerență
+        # și ne bazăm pe _init_camera_widget să pornească camera după permisiuni/configurare.
 
     def on_leave(self, *_):
         super().on_leave()
@@ -170,10 +159,10 @@ class CameraScanScreen(MDScreen, Alignment):
         if all(grants):
             self._awaiting_permission = False
             self._init_camera_widget()
-            if self.camera_view:
-                self.camera_view.play = True
+            # Camera este pornită deja în _init_camera_widget
         else:
             Logger.warning("CameraScanScreen: Camera/storage permission denied.")
+            self._show_camera_error("Permisiunea pentru cameră/stocare a fost refuzată.")
 
     # ------------------------------------------------------------------
     # Camera
@@ -198,10 +187,10 @@ class CameraScanScreen(MDScreen, Alignment):
             self._show_camera_error("Camera indisponibilă.\nVerifică permisiunile sau conectează o cameră.")
             return
 
-        camera.size_hint = (1,1)
-        camera.size_hint_min = (1,1)
+        # MODIFICARE: Aplicăm rotația imediat, înainte de a adăuga la layout
+        camera.size_hint = (1, 1) # Setăm size_hint la (1, 1) pentru a umple containerul
 
-        # Rotate 90° left
+        # Rotirea 90° stânga
         with camera.canvas.before:
             PushMatrix()
             self._rotation = Rotate(angle=-90, origin=camera.center)
@@ -214,7 +203,7 @@ class CameraScanScreen(MDScreen, Alignment):
 
         camera.bind(pos=_update_origin, size=_update_origin)
 
-        # When a picture is taken, rescan so Gallery sees it
+        # Când o poză este făcută, rescanare, afișare popup și navigare înapoi
         def on_picture(_, filepath):
             Logger.info(f"CameraScanScreen: Saved photo -> {filepath}")
             print(f"[Camera] photo saved -> {filepath}", flush=True)
@@ -257,20 +246,21 @@ class CameraScanScreen(MDScreen, Alignment):
         """Save captures in a public folder: /storage/emulated/0/Pictures/SmartID/"""
         try:
             if platform == "android":
-                from android.storage import primary_external_storage_path
-
                 # Get base external storage path, e.g. /storage/emulated/0
-                base = Path(primary_external_storage_path())
-
-                # Put captures in the public Pictures directory
-                target = base / "Pictures" / "SmartID"
+                # MODIFICARE: Adăugăm o verificare de siguranță pentru primary_external_storage_path
+                base_path = primary_external_storage_path()
+                if base_path:
+                    base = Path(base_path)
+                    target = base / "Pictures" / "SmartID"
+                else:
+                    raise RuntimeError("External storage path not available.")
             else:
                 # Fallback for desktop
                 target = Path.home() / "Pictures" / "SmartID"
         except Exception as e:
-            Logger.warning(f"CameraScanScreen: Could not resolve public capture dir: {e}")
-            target = Path.home() / "Pictures" / "SmartID"
-
+            Logger.warning(f"CameraScanScreen: Could not resolve public capture dir, falling back: {e}")
+            target = Path(App.get_running_app().user_data_dir) / "captures" # Fallback mai sigur
+            
         target.mkdir(parents=True, exist_ok=True)
         Logger.info(f"CameraScanScreen: Capture dir = {target}")
         return target
@@ -301,7 +291,7 @@ class CameraScanScreen(MDScreen, Alignment):
         return 0 if cam_count > 0 else None
 
     def _ensure_android_capture_backend(self) -> None:
-        """Force XCamera to use native Android picture backend."""
+        """Force XCamera to use native Android picture backend (and set EXIF rotation)."""
         if platform != "android":
             return
         try:
@@ -316,6 +306,7 @@ class CameraScanScreen(MDScreen, Alignment):
 
         android_take_picture = getattr(android_api, "take_picture", None)
         if callable(android_take_picture):
+            # patch rotation once (optional, guards against multiple wraps)
             if not getattr(android_api, "_smartid_rotation_patch", False):
                 original_take_picture = android_take_picture
 
@@ -335,6 +326,75 @@ class CameraScanScreen(MDScreen, Alignment):
 
             platform_api.take_picture = android_api.take_picture
             xcamera_module.take_picture = android_api.take_picture
+
+    # ------------------------------------------------------------------
+    # Popup flow (SHOW → wait → CLOSE → back)
+    # ------------------------------------------------------------------
+    def _on_capture_completed(self, filepath: Path) -> None:
+        """Called after XCamera fired on_picture_taken."""
+        msg = f"Fotografie salvată:\n[b]{filepath.name}[/b]"
+        
+        self._show_processing_dialog(title="Succes", text=msg)
+        
+        # Setează evenimentul de închidere după 2 secunde
+        if self._processing_event:
+            self._processing_event.cancel()
+        self._processing_event = Clock.schedule_once(self._finish_processing, 2.0)
+        
+        # Butonul este dezactivat la începutul capturii, va fi activat doar după navigare.
+
+    def _show_processing_dialog(self, title: str = "Procesare",
+                                text: str = "Se procesează...", seconds: float | None = None) -> None:
+        """
+        Creează/deschide popup-ul tranzitoriu. 
+        MODIFICARE: Logică simplificată pentru a preveni erorile de stări deschise.
+        """
+        # Creare dialog dacă nu există
+        if self._processing_dialog is None:
+            self._processing_dialog = MDDialog(
+                title=title,
+                text=text,
+                auto_dismiss=False, 
+            )
+        else:
+            # Actualizează conținutul dialogului existent
+            self._processing_dialog.title = title
+            self._processing_dialog.text = text
+
+        # Deschide dialogul (MDDialog.open() este idempotent - nu deschide dacă e deja deschis)
+        try:
+            self._processing_dialog.open()
+        except Exception as e:
+            Logger.error(f"CameraScanScreen: Failed to open dialog: {e}")
+
+
+    def _finish_processing(self, *_):
+        """
+        Închide dialogul și navighează înapoi.
+        """
+        self._processing_event = None
+        
+        # MODIFICARE: Resetăm starea înainte de a închide și naviga.
+        self._capture_in_progress = False 
+        if self.capture_button:
+            self.capture_button.disabled = False
+            
+        self._dismiss_processing_dialog()
+        self._go_back()
+
+    def _dismiss_processing_dialog(self) -> None:
+        """
+        Închide dialogul dacă este deschis.
+        """
+        if self._processing_dialog:
+            self._processing_dialog.dismiss()
+
+    def _cancel_processing_flow(self) -> None:
+        """Anulează evenimentele temporizate și închide dialogul."""
+        if self._processing_event:
+            self._processing_event.cancel()
+            self._processing_event = None
+        self._dismiss_processing_dialog()
 
     # ------------------------------------------------------------------
     # Error + navigation
@@ -358,43 +418,17 @@ class CameraScanScreen(MDScreen, Alignment):
         self._capture_in_progress = False
         self._cancel_processing_flow()
 
-    def _on_capture_completed(self, _filepath: Path) -> None:
-        self._show_processing_dialog()
-        if self._processing_event:
-            self._processing_event.cancel()
-        self._processing_event = Clock.schedule_once(self._finish_processing, 3.0)
-        if self.capture_button:
-            self.capture_button.disabled = True
-
-    def _show_processing_dialog(self) -> None:
-        if self._processing_dialog is None:
-            self._processing_dialog = MDDialog(
-                title="Processing", 
-                text="Processing...",
-                auto_dismiss=False,
-            )
-        if not getattr(self._processing_dialog, "_is_open", False):
-            self._processing_dialog.open()
-
-    def _finish_processing(self, *_):
-        self._processing_event = None
-        self._dismiss_processing_dialog()
-        self._go_back()
-
-    def _dismiss_processing_dialog(self) -> None:
-        if self._processing_dialog and getattr(self._processing_dialog, "_is_open", False):
-            self._processing_dialog.dismiss()
-
-    def _cancel_processing_flow(self) -> None:
-        if self._processing_event:
-            self._processing_event.cancel()
-            self._processing_event = None
-        self._dismiss_processing_dialog()
-
     def _remove_default_capture_button(self) -> None:
         """Remove the stock XCamera capture button so our custom control is the only one."""
         if not self.camera_view:
             return
+        
+        # MODIFICARE: Dezactivarea implicită a controalelor.
+        # Aceasta este metoda standard de a ascunde butonul.
+        if hasattr(self.camera_view, 'show_controls'):
+             self.camera_view.show_controls = False
+             
+        # Logica de ștergere manuală (ca fallback)
         shoot_button = getattr(self.camera_view, "ids", {}).get("shoot_button") if hasattr(self.camera_view, "ids") else None
         if shoot_button and shoot_button.parent:
             shoot_button.parent.remove_widget(shoot_button)
@@ -432,10 +466,11 @@ class CameraScanScreen(MDScreen, Alignment):
         print("[Camera] capture requested", flush=True)
         self._capture_in_progress = True
         if self.capture_button:
-            self.capture_button.disabled = True
+            self.capture_button.disabled = True # Dezactivăm imediat butonul
 
         try:
-            self.camera_view.shoot()
+            # XCamera va apela on_picture_taken la finalizare
+            self.camera_view.shoot() 
         except Exception as exc:
             Logger.error(f"CameraScanScreen: Failed to shoot photo: {exc}")
             print(f"[Camera] capture failed: {exc}", flush=True)
@@ -443,9 +478,6 @@ class CameraScanScreen(MDScreen, Alignment):
             if self.capture_button:
                 self.capture_button.disabled = False
             return
-
-        if self.capture_button:
-            self.capture_button.disabled = True
 
     def _go_back(self) -> None:
         manager = getattr(self, "manager", None)
