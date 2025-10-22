@@ -38,6 +38,13 @@ class DocumentCardTemplate(MDCard):
     SUBTITLE_SP = 16
     META_SP = 15
 
+    COMPACT_THRESHOLD = 0.96
+    COMPACT_MIN_RATIO = 0.78
+    COMPACT_PADDING_FACTOR = 0.78
+    COMPACT_SPACING_FACTOR = 0.82
+    COMPACT_RADIUS_FACTOR = 0.85
+    COMPACT_FONT_FACTOR = 0.88
+
     def __init__(self, title: str, subtitle: str, meta_lines: Sequence[str], **kwargs):
         super().__init__(**kwargs)
         self.title_text = title
@@ -55,6 +62,12 @@ class DocumentCardTemplate(MDCard):
         self._registered_labels: List[tuple[MDLabel, float, float]] = []
         self._scale_dp_fn = lambda value: dp(value)
         self._scale_sp_fn = lambda value: sp(value)
+        self._compact_strength = 0.0
+        self._padding_factor = 1.0
+        self._spacing_factor = 1.0
+        self._radius_factor = 1.0
+        self._font_factor = 1.0
+        self._label_padding_factor = 1.0
 
         self._content_box = MDBoxLayout(
             orientation="vertical",
@@ -128,7 +141,7 @@ class DocumentCardTemplate(MDCard):
     def _update_label_height(self, label: MDLabel, padding_dp: float) -> None:
         if label.texture is None:
             label.texture_update()
-        padding_px = self._scale_dp_fn(padding_dp)
+        padding_px = self._scale_dp_fn(padding_dp * self._label_padding_factor)
         label.height = label.texture_size[1] + padding_px
         self._update_card_height()
 
@@ -136,20 +149,39 @@ class DocumentCardTemplate(MDCard):
         padding_y = sum(self.padding[1::2]) if isinstance(self.padding, (list, tuple)) else 0
         self.height = self._content_box.height + padding_y
 
-    def apply_scale(self, scale_dp, scale_sp) -> None:
+    @staticmethod
+    def _lerp(start: float, end: float, amount: float) -> float:
+        return start + (end - start) * amount
+
+    def _compute_compact_strength(self, scale_ratio: float) -> float:
+        if scale_ratio >= self.COMPACT_THRESHOLD:
+            return 0.0
+        denom = self.COMPACT_THRESHOLD - self.COMPACT_MIN_RATIO
+        if denom <= 0:
+            return 1.0
+        strength = (self.COMPACT_THRESHOLD - scale_ratio) / denom
+        return max(0.0, min(1.0, strength))
+
+    def apply_scale(self, scale_dp, scale_sp, scale_ratio=1.0) -> None:
         self._scale_dp_fn = scale_dp
         self._scale_sp_fn = scale_sp
+        self._compact_strength = self._compute_compact_strength(scale_ratio)
+        self._padding_factor = self._lerp(1.0, self.COMPACT_PADDING_FACTOR, self._compact_strength)
+        self._spacing_factor = self._lerp(1.0, self.COMPACT_SPACING_FACTOR, self._compact_strength)
+        self._radius_factor = self._lerp(1.0, self.COMPACT_RADIUS_FACTOR, self._compact_strength)
+        self._font_factor = self._lerp(1.0, self.COMPACT_FONT_FACTOR, self._compact_strength)
+        self._label_padding_factor = self._padding_factor
 
-        padding = scale_dp(self.BASE_PADDING)
-        spacing = scale_dp(self.BASE_SPACING)
-        radius = scale_dp(self.BASE_RADIUS)
+        padding = scale_dp(self.BASE_PADDING * self._padding_factor)
+        spacing = scale_dp(self.BASE_SPACING * self._spacing_factor)
+        radius = scale_dp(self.BASE_RADIUS * self._radius_factor)
 
         self.padding = (padding, padding, padding, padding)
         self._content_box.spacing = spacing
         self.radius = [radius] * 4
 
         for label, base_sp, padding_dp in self._registered_labels:
-            label.font_size = scale_sp(base_sp)
+            label.font_size = scale_sp(base_sp * self._font_factor)
             self._update_label_height(label, padding_dp)
 
         self._update_card_height()
@@ -163,6 +195,13 @@ class AddDocumentCardTemplate(MDCard):
     BASE_RADIUS = 20
     ICON_SP = 44
     CAPTION_SP = 16
+    COMPACT_THRESHOLD = 0.96
+    COMPACT_MIN_RATIO = 0.78
+    COMPACT_PADDING_FACTOR = 0.78
+    COMPACT_SPACING_FACTOR = 0.82
+    COMPACT_RADIUS_FACTOR = 0.85
+    COMPACT_ICON_FACTOR = 0.82
+    COMPACT_CAPTION_FACTOR = 0.9
 
     def __init__(self, caption: str, on_request_add, **kwargs):
         super().__init__(**kwargs)
@@ -178,6 +217,14 @@ class AddDocumentCardTemplate(MDCard):
         self.line_color = CARD_STROKE
         self._scale_dp_fn = lambda value: dp(value)
         self._scale_sp_fn = lambda value: sp(value)
+        self._compact_strength = 0.0
+        self._padding_factor = 1.0
+        self._spacing_factor = 1.0
+        self._radius_factor = 1.0
+        self._icon_factor = 1.0
+        self._caption_factor = 1.0
+        self._icon_padding_factor = 1.0
+        self._caption_padding_factor = 1.0
 
         self._content_box = MDBoxLayout(
             orientation="vertical",
@@ -221,13 +268,15 @@ class AddDocumentCardTemplate(MDCard):
     def _update_icon_height(self) -> None:
         if self._icon_label.texture is None:
             self._icon_label.texture_update()
-        self._icon_label.height = self._icon_label.texture_size[1] + self._scale_dp_fn(12)
+        extra = self._scale_dp_fn(12 * self._icon_padding_factor)
+        self._icon_label.height = self._icon_label.texture_size[1] + extra
         self._update_card_height()
 
     def _update_caption_height(self) -> None:
         if self._caption_label.texture is None:
             self._caption_label.texture_update()
-        self._caption_label.height = self._caption_label.texture_size[1] + self._scale_dp_fn(8)
+        extra = self._scale_dp_fn(8 * self._caption_padding_factor)
+        self._caption_label.height = self._caption_label.texture_size[1] + extra
         self._update_card_height()
 
     def _update_card_height(self) -> None:
@@ -238,20 +287,41 @@ class AddDocumentCardTemplate(MDCard):
         if callable(self.on_request_add):
             self.on_request_add()
 
-    def apply_scale(self, scale_dp, scale_sp) -> None:
+    @staticmethod
+    def _lerp(start: float, end: float, amount: float) -> float:
+        return start + (end - start) * amount
+
+    def _compute_compact_strength(self, scale_ratio: float) -> float:
+        if scale_ratio >= self.COMPACT_THRESHOLD:
+            return 0.0
+        denom = self.COMPACT_THRESHOLD - self.COMPACT_MIN_RATIO
+        if denom <= 0:
+            return 1.0
+        strength = (self.COMPACT_THRESHOLD - scale_ratio) / denom
+        return max(0.0, min(1.0, strength))
+
+    def apply_scale(self, scale_dp, scale_sp, scale_ratio=1.0) -> None:
         self._scale_dp_fn = scale_dp
         self._scale_sp_fn = scale_sp
+        self._compact_strength = self._compute_compact_strength(scale_ratio)
+        self._padding_factor = self._lerp(1.0, self.COMPACT_PADDING_FACTOR, self._compact_strength)
+        self._spacing_factor = self._lerp(1.0, self.COMPACT_SPACING_FACTOR, self._compact_strength)
+        self._radius_factor = self._lerp(1.0, self.COMPACT_RADIUS_FACTOR, self._compact_strength)
+        self._icon_factor = self._lerp(1.0, self.COMPACT_ICON_FACTOR, self._compact_strength)
+        self._caption_factor = self._lerp(1.0, self.COMPACT_CAPTION_FACTOR, self._compact_strength)
+        self._icon_padding_factor = self._padding_factor
+        self._caption_padding_factor = self._padding_factor
 
-        padding = scale_dp(self.BASE_PADDING)
-        spacing = scale_dp(self.BASE_SPACING)
-        radius = scale_dp(self.BASE_RADIUS)
+        padding = scale_dp(self.BASE_PADDING * self._padding_factor)
+        spacing = scale_dp(self.BASE_SPACING * self._spacing_factor)
+        radius = scale_dp(self.BASE_RADIUS * self._radius_factor)
 
         self.padding = (padding, padding, padding, padding)
         self._content_box.spacing = spacing
         self.radius = [radius] * 4
 
-        self._icon_label.font_size = scale_sp(self.ICON_SP)
-        self._caption_label.font_size = scale_sp(self.CAPTION_SP)
+        self._icon_label.font_size = scale_sp(self.ICON_SP * self._icon_factor)
+        self._caption_label.font_size = scale_sp(self.CAPTION_SP * self._caption_factor)
 
         self._update_icon_height()
         self._update_caption_height()
@@ -562,7 +632,7 @@ class BaseDocumentsScreen(MDScreen, Alignment):
         for row in self._card_rows:
             card = row.children[0]
             if hasattr(card, "apply_scale"):
-                card.apply_scale(self._scale_dp, self._scale_sp)
+                card.apply_scale(self._scale_dp, self._scale_sp, self.scale_ratio)
 
     def _on_window_resize(self, *_):
         self.scale_ratio = self._compute_scale()
