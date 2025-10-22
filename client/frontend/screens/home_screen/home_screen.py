@@ -222,6 +222,10 @@ class HomeScreen(MDScreen, Alignment):
 
         Window.clearcolor = BG_BOTTOM
 
+        # Container principal care va conține tot
+        main_container = AnchorLayout()
+        
+        # Layout-ul principal cu conținutul
         root = MDBoxLayout(
             orientation="vertical",
             spacing=dp(16),
@@ -232,12 +236,21 @@ class HomeScreen(MDScreen, Alignment):
                 self._safe_bottom_padding(16),
             ],
         )
-        self.add_widget(root)
 
         root.add_widget(self._build_header())
         root.add_widget(self._build_news_section())
         root.add_widget(self._build_scroll_area())
-        root.add_widget(self._build_bottom_bar())
+        #root.add_widget(self._build_bottom_bar())
+
+        # Adaugă layout-ul principal la container
+        main_container.add_widget(root)
+        
+        # Adaugă butonul floating chat deasupra tuturor
+        floating_chat = self._build_floating_chat_button()
+        main_container.add_widget(floating_chat)
+        
+        # Adaugă containerul principal la screen
+        self.add_widget(main_container)
 
         if self.news_carousel:
             self.news_carousel.bind(index=self._refresh_dots)
@@ -246,9 +259,26 @@ class HomeScreen(MDScreen, Alignment):
         self._populate_news([])
         self._update_news_card_widths()
 
-    # ------------------------------------------------------------------
-    # Layout builders
-    # ------------------------------------------------------------------
+    def _build_floating_chat_button(self):
+        """Creează butonul floating pentru chat care plutește deasupra tuturor elementelor"""
+        floating_container = AnchorLayout(
+            anchor_x="right",
+            anchor_y="bottom",
+            size_hint=(1, 1),
+            padding=(0, 0, dp(24), dp(40))  # right, top, left, bottom
+        )
+        
+        chat_fab = MDFloatingActionButton(
+            icon="chat",
+            md_bg_color=ACCENT,
+            size_hint=(None, None),
+            size=(dp(48), dp(48)),
+            elevation=16,
+            on_release=lambda *_: self._go_to_screen("chat")
+        )
+        
+        floating_container.add_widget(chat_fab)
+        return floating_container
     def _build_header(self):
         container = MDBoxLayout(orientation="vertical", spacing=dp(4), adaptive_height=True)
 
@@ -326,15 +356,6 @@ class HomeScreen(MDScreen, Alignment):
             padding=(dp(12), dp(12)),
             spacing=dp(12),
         )
-
-        chat_button = MDFlatButton(
-            text="AI Chat Bot",
-            theme_text_color="Custom",
-            text_color=ACCENT,
-            on_release=lambda *_: self._go_to_screen("chat"),
-        )
-        bar.add_widget(chat_button)
-        bar.add_widget(Widget())
 
         fab_column = MDBoxLayout(
             orientation="vertical",
