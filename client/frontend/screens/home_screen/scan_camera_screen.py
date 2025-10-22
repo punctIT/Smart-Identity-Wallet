@@ -369,7 +369,7 @@ class CameraScanScreen(MDScreen, Alignment):
     def _show_processing_dialog(self) -> None:
         if self._processing_dialog is None:
             self._processing_dialog = MDDialog(
-                title="Processing",
+                title="Processing", 
                 text="Processing...",
                 auto_dismiss=False,
             )
