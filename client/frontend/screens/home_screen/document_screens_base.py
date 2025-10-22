@@ -541,35 +541,40 @@ class BaseDocumentsScreen(MDScreen, Alignment):
 
     @staticmethod
     def _extract_subtitle(document: dict) -> str:
-        return (
-            document.get("subtitle")
-            or document.get("description")
-            or document.get("type")
-            or ""
-        )
+        return ""
 
     @staticmethod
     def _extract_meta(document: dict) -> Sequence[str]:
         meta = document.get("meta") or document.get("details") or document.get("metadata")
-        if meta:
-            if isinstance(meta, dict):
-                return [f"{key}: {value}" for key, value in meta.items()]
-            if isinstance(meta, (list, tuple)):
-                return [str(item) for item in meta]
-            return [str(meta)]
 
-        lines = []
-        status = document.get("status")
-        number = document.get("number")
-        expiry = document.get("expiry") or document.get("expires_at")
+        expiry_value = (
+            document.get("expiry")
+            or document.get("expires_at")
+            or document.get("expiration_date")
+        )
+        expiry_label = "Expiră"
 
-        if status:
-            lines.append(f"Status: {status}")
-        if number:
-            lines.append(f"Număr: {number}")
-        if expiry:
-            lines.append(f"Expiră: {expiry}")
-        return lines
+        if not expiry_value and isinstance(meta, dict):
+            for key, value in meta.items():
+                if "expir" in key.lower():
+                    expiry_value = value
+                    expiry_label = key
+                    break
+
+        if not expiry_value and isinstance(meta, (list, tuple)):
+            for item in meta:
+                item_str = str(item)
+                if "expir" in item_str.lower():
+                    return [item_str]
+
+        if not expiry_value and isinstance(meta, str):
+            if "expir" in meta.lower():
+                return [meta]
+
+        if expiry_value:
+            return [f"{expiry_label}: {expiry_value}"]
+
+        return []
 
     # ------------------------------------------------------------------ #
     # Navigation

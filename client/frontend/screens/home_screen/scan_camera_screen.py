@@ -4,10 +4,12 @@ from pathlib import Path
 
 from kivy.app import App
 from kivy.logger import Logger
+from kivy.metrics import dp
 from kivy.utils import platform
-from kivy.graphics import PushMatrix, PopMatrix, Rotate
-from kivy.uix.floatlayout import FloatLayout
 
+from kivymd.uix.boxlayout import MDBoxLayout
+from kivymd.uix.button import MDIconButton
+from kivymd.uix.label import MDLabel
 from kivymd.uix.screen import MDScreen
 
 from kivy_garden.xcamera.xcamera import XCamera
@@ -38,7 +40,7 @@ class CameraScanScreen(MDScreen, Alignment):
         super().__init__(name="camera_scan", **kwargs)
         self.server = server
         self.camera_view: XCamera | None = None
-        self.camera_holder: FloatLayout | None = None
+        self.camera_holder: MDBoxLayout | None = None
         self._awaiting_permission = False
 
         self._build_ui()
@@ -47,10 +49,36 @@ class CameraScanScreen(MDScreen, Alignment):
     # UI construction
     # ------------------------------------------------------------------
     def _build_ui(self) -> None:
-        root = FloatLayout()
+        padding = [
+            dp(12),
+            self._safe_top_padding(12),
+            dp(12),
+            self._safe_bottom_padding(12),
+        ]
+
+        root = MDBoxLayout(
+            orientation="vertical",
+            padding=padding,
+            spacing=dp(12),
+        )
         self.add_widget(root)
 
-        self.camera_holder = FloatLayout(size_hint=(1, 1))
+        header = MDBoxLayout(
+            orientation="horizontal",
+            size_hint_y=None,
+            height=dp(48),
+        )
+        back_btn = MDIconButton(
+            icon="arrow-left",
+            theme_icon_color="Custom",
+            icon_color=(1, 1, 1, 0.92),
+            on_release=lambda *_: self._go_back(),
+        )
+        header.add_widget(back_btn)
+        header.add_widget(MDLabel())
+        root.add_widget(header)
+
+        self.camera_holder = MDBoxLayout()
         root.add_widget(self.camera_holder)
 
     # ------------------------------------------------------------------
@@ -102,32 +130,9 @@ class CameraScanScreen(MDScreen, Alignment):
             play=False,
             directory=str(capture_dir),
         )
-        camera.size_hint = (1, 1)
-        if hasattr(camera, "allow_stretch"):
-            camera.allow_stretch = True
-        if hasattr(camera, "keep_ratio"):
-            camera.keep_ratio = False
 
         self.camera_view = camera
-        self._apply_camera_rotation(self.camera_view)
         self.camera_holder.add_widget(self.camera_view)
-
-    def _apply_camera_rotation(self, camera: XCamera) -> None:
-        if hasattr(camera, "_rotation_instruction"):
-            return
-        with camera.canvas.before:
-            PushMatrix()
-            camera._rotation_instruction = Rotate(angle=-90, axis=(0, 0, 1), origin=camera.center)
-        with camera.canvas.after:
-            PopMatrix()
-        camera.bind(pos=self._sync_camera_rotation_origin, size=self._sync_camera_rotation_origin)
-        self._sync_camera_rotation_origin(camera)
-
-    @staticmethod
-    def _sync_camera_rotation_origin(camera: XCamera, *_):
-        rotate = getattr(camera, "_rotation_instruction", None)
-        if rotate:
-            rotate.origin = camera.center
 
     # ------------------------------------------------------------------
     # Navigation & filesystem helpers
@@ -141,6 +146,21 @@ class CameraScanScreen(MDScreen, Alignment):
         target = base / "captures"
         target.mkdir(parents=True, exist_ok=True)
         return target
+
+    def _go_back(self) -> None:
+        manager = getattr(self, "manager", None)
+        if not manager:
+            return
+        if manager.has_screen("home"):
+            transition = getattr(manager, "transition", None)
+            previous = getattr(transition, "direction", None)
+            if transition:
+                transition.direction = "down"
+            manager.current = "home"
+            if transition and previous:
+                transition.direction = previous
+        else:
+            manager.current = manager.previous()
 
 
 __all__ = ["CameraScanScreen"]

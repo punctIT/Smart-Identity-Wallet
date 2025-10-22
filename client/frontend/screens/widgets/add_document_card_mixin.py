@@ -104,7 +104,6 @@ class AddDocumentCardMixin:
             card=card,
             content=content,
             title=None,
-            subtitle=None,
             meta=[],
             base_height=base_height,
             height_updaters=[_update_fonts, caption_height_updater],
