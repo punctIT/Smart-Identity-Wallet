@@ -1,13 +1,17 @@
+use crate::handle_requests::response_handler::ResponseHandler;
+use crate::network::server_https::AppState;
 use crate::others::common::MessageRequest;
 use serde_json::{json, Value};
 use std::sync::Arc;
-use crate::handle_requests::response_handler::ResponseHandler;
-use crate::network::server_https::AppState;
 
 pub struct WalletCards {}
 
 impl WalletCards {
-    pub async fn insert(value: &'static str, request: &MessageRequest, app_state: Arc<AppState>) -> (bool, Value) {
+    pub async fn insert(
+        value: &'static str,
+        request: &MessageRequest,
+        app_state: Arc<AppState>,
+    ) -> (bool, Value) {
         let content = match &request.content {
             Some(content) => content,
             None => return ResponseHandler::standard_error("Must be a json".to_string()),
@@ -58,7 +62,11 @@ impl WalletCards {
         (true, json!({"msg": "Identity card updated successfully"}))
     }
 
-    pub async fn get(value: &'static str, request: &MessageRequest, app_state: Arc<AppState>) -> (bool, Value) {
+    pub async fn get(
+        value: &'static str,
+        request: &MessageRequest,
+        app_state: Arc<AppState>,
+    ) -> (bool, Value) {
         let encrypted_card = match app_state
             .db
             .select(

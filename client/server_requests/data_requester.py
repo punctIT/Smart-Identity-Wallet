@@ -11,6 +11,7 @@
 #"GetWalletCards" => PersonalDataManager::get_wallet_data(&request, app_state).await,
 # "News"=>NewsData::get_latest_news(app_state).await,
 
+
 class DataRequester:
     _MOCK_WALLET_CARDS = [
         {
@@ -52,9 +53,6 @@ class DataRequester:
 
     def get_specific_data(self, message_type):
         try:
-            if message_type == "GetWalletCards":
-                return self._mock_wallet_cards(message_type)
-
             payload = {
                 "message_type": message_type,
                 "user_id": self.user_id, 
@@ -73,6 +71,7 @@ class DataRequester:
                 print(data)
                 if data['success'] is False:
                     return None
+                #print(data['data'])
                 return data
             else:
                 print(f"❌ Eroare: {response.status_code}")
