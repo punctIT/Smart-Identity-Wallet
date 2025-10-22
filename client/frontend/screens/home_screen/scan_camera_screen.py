@@ -194,24 +194,23 @@ class CameraScanScreen(MDScreen, Alignment):
     # Filesystem helpers
     # ------------------------------------------------------------------
     def _build_capture_dir(self) -> Path:
-        """Return an app-accessible directory for saving captures."""
+        """Save captures in a public folder: /storage/emulated/0/Pictures/SmartID/"""
         try:
             if platform == "android":
-                from jnius import autoclass
+                from android.storage import primary_external_storage_path
 
-                activity = autoclass("org.kivy.android.PythonActivity").mActivity
-                external_dir = activity.getExternalFilesDir(None)
-                if external_dir:
-                    base = Path(external_dir.getAbsolutePath())
-                else:
-                    base = Path(App.get_running_app().user_data_dir)
+                # Get base external storage path, e.g. /storage/emulated/0
+                base = Path(primary_external_storage_path())
+
+                # Put captures in the public Pictures directory
+                target = base / "Pictures" / "SmartID"
             else:
-                base = Path.home() / "SmartIDWallet"
+                # Fallback for desktop
+                target = Path.home() / "Pictures" / "SmartID"
         except Exception as e:
-            Logger.warning(f"CameraScanScreen: Could not resolve capture dir: {e}")
-            base = Path(App.get_running_app().user_data_dir)
+            Logger.warning(f"CameraScanScreen: Could not resolve public capture dir: {e}")
+            target = Path.home() / "Pictures" / "SmartID"
 
-        target = base / "captures"
         target.mkdir(parents=True, exist_ok=True)
         Logger.info(f"CameraScanScreen: Capture dir = {target}")
         return target
