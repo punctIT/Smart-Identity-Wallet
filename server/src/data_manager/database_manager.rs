@@ -49,6 +49,10 @@ impl DBManager {
             .get(0);
         Ok(exists)
     }
+    pub async fn select_count(&self, query: String, value: &'static str) -> Result<i64, Error> {
+        let row = self.client.query_one(query.as_str(), &[]).await?;
+        Ok(row.get::<&str, i64>(value))
+    }
     pub async fn check_login_credentials(
         &self,
         login_request: &LoginRequest,
@@ -95,8 +99,13 @@ impl DBManager {
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
             identity_card TEXT,
+            driving_license TEXT,
+            passport TEXT,
+            vehicle_registration TEXT,
+            insurance_auto TEXT,
             CONSTRAINT unique_user_identity UNIQUE(user_id)
-        );"
+        );
+        "
             .to_string(),
         )
         .await?;
