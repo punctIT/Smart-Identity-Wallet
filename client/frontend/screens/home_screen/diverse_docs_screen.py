@@ -1,32 +1,13 @@
-from kivy.uix.screenmanager import Screen
-
-from frontend.screens.widgets.add_document_card_mixin import AddDocumentCardMixin
-from frontend.screens.widgets.custom_buttons import CustomButton
-from frontend.screens.widgets.custom_input import CustomInput
-from frontend.screens.widgets.custom_label import CustomLabels
-from frontend.screens.widgets.document_list import DocumentListMixin
+from frontend.screens.home_screen.document_screens_base import BaseDocumentsScreen
 
 
-class DiverseDocsScreen(
-    AddDocumentCardMixin,
-    DocumentListMixin,
-    Screen,
-    CustomLabels,
-    CustomButton,
-    CustomInput,
-):
-    TITLE_TEXT = "Documente diverse"
-    SUBTITLE_TEXT = "Aici găsești restul documentelor digitale salvate."
-    EMPTY_TEXT = "Nu există documente diverse momentan."
-
-    def __init__(self, server=None, **kwargs):
-        Screen.__init__(self, name="diverse_docs", **kwargs)
-        self.setup_document_screen(
-            server=server,
-            title_text=self.TITLE_TEXT,
-            subtitle_text=self.SUBTITLE_TEXT,
-            empty_text=self.EMPTY_TEXT,
-        )
+class DiverseDocsScreen(BaseDocumentsScreen):
+    screen_name = "diverse_docs"
+    title_text = "Documente diverse"
+    subtitle_text = "Aici găsești restul documentelor digitale salvate."
+    empty_text = "Nu există documente diverse momentan."
+    document_categories = ("diverse_docs", "diverse", "other")
+    require_category_match = True
 
 
 __all__ = ["DiverseDocsScreen"]

@@ -235,6 +235,7 @@ class HomeScreen(MDScreen, Alignment):
         self.add_widget(root)
 
         root.add_widget(self._build_header())
+        root.add_widget(self._build_news_section())
         root.add_widget(self._build_scroll_area())
         root.add_widget(self._build_bottom_bar())
 
@@ -276,13 +277,8 @@ class HomeScreen(MDScreen, Alignment):
         container.add_widget(subtitle)
         return container
 
-    def _build_scroll_area(self):
-        scroll = MDScrollView(size_hint=(1, 1))
-        content = MDBoxLayout(orientation="vertical", spacing=dp(16), size_hint_y=None, adaptive_height=True)
-        scroll.add_widget(content)
-
-        # News carousel
-        carousel_section = MDBoxLayout(orientation="vertical", spacing=dp(6), size_hint_y=None, adaptive_height=True)
+    def _build_news_section(self):
+        section = MDBoxLayout(orientation="vertical", spacing=dp(6), size_hint_y=None, adaptive_height=True)
 
         carousel_holder = AnchorLayout(size_hint=(1, None), height=dp(180))
         self.news_carousel = HomeNewsCarousel(
@@ -293,18 +289,20 @@ class HomeScreen(MDScreen, Alignment):
         )
         self.news_carousel.scroll_distance = dp(40)
         self.news_carousel.scroll_timeout = 180
-        self.news_carousel.parent_scroll = scroll
         carousel_holder.add_widget(self.news_carousel)
-        carousel_section.add_widget(carousel_holder)
+        section.add_widget(carousel_holder)
 
         dots_holder = AnchorLayout(size_hint=(1, None), height=dp(20))
         self.dot_container = MDBoxLayout(orientation="horizontal", spacing=dp(3), padding=(0, 0, 0, 0), adaptive_size=True)
         dots_holder.add_widget(self.dot_container)
-        carousel_section.add_widget(dots_holder)
+        section.add_widget(dots_holder)
+        return section
 
-        content.add_widget(carousel_section)
+    def _build_scroll_area(self):
+        scroll = MDScrollView(size_hint=(1, 1))
+        content = MDBoxLayout(orientation="vertical", spacing=dp(16), size_hint_y=None, adaptive_height=True)
+        scroll.add_widget(content)
 
-        # Categories
         grid_section = MDBoxLayout(orientation="vertical", spacing=dp(12), size_hint_y=None, adaptive_height=True)
         grid = MDGridLayout(cols=2, spacing=dp(12), padding=(0, 0, 0, dp(12)), size_hint_y=None, adaptive_height=True)
         for tile in CATEGORY_TILE_CONFIG:
