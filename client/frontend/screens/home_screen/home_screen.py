@@ -18,11 +18,18 @@ from kivymd.uix.card import MDCard
 from kivymd.uix.label import MDLabel
 from kivymd.uix.button import MDIconButton
 from kivymd.uix.boxlayout import MDBoxLayout
-from kivymd.uix.dialog import MDDialog
-from kivymd.uix.button import MDFlatButton
+from pathlib import Path
+from kivy.uix.image import Image  
+
+
+ASSETS_DIR = Path(__file__).parent.parent / "assets"
+LOGO_PATH = ASSETS_DIR / "logo.png"
+
 from kivymd.uix.scrollview import MDScrollView
 from kivy.metrics import dp
 from kivy.clock import Clock
+from kivy.graphics import Color, Rectangle
+
 
 from frontend.screens.widgets.custom_alignment import Alignment
 from frontend.screens.widgets.custom_cards import CategoryCard,NewsCard
@@ -112,9 +119,17 @@ class HomeNewsCarousel(MDCarousel):
         self._lock_scroll = False
         return super().on_touch_up(touch)
 
+from frontend.screens.widgets.custom_background import GradientBackground
+
 class HomeScreen(MDScreen, Alignment):
     def __init__(self, sm=None, server=None, **kwargs):
         super().__init__(name="home", **kwargs)
+        with self.canvas.before:
+            Color(0.13, 0.14, 0.16, 1)
+            self.bg_rect = Rectangle(size=Window.size, pos=(0, 0))
+        self.bind(size=self._update_bg, pos=self._update_bg)
+        Window.bind(size=self._update_window_bg)
+        
         self.server = server
         self.sm = sm if hasattr(sm, "has_screen") else None
         self._back_binding = False
@@ -122,14 +137,6 @@ class HomeScreen(MDScreen, Alignment):
         self.dot_container = None
         self._news_cards = []
 
-        app = App.get_running_app()
-        if app and hasattr(app, "theme_cls"):
-            app.theme_cls.theme_style = "Dark"
-            app.theme_cls.primary_palette = "Blue"
-
-        Window.clearcolor = (0.12, 0.03, 0.03, 1) 
-
-        # Container principal care va conține tot
         main_container = AnchorLayout()
         
         # Layout-ul principal cu conținutul
@@ -147,7 +154,6 @@ class HomeScreen(MDScreen, Alignment):
         root.add_widget(self._build_header())
         root.add_widget(self._build_news_section())
         root.add_widget(self._build_scroll_area())
-        #root.add_widget(self._build_bottom_bar())
 
         # Adaugă layout-ul principal la container
         main_container.add_widget(root)
@@ -165,6 +171,18 @@ class HomeScreen(MDScreen, Alignment):
         Window.bind(size=self._update_news_card_widths)
         self._populate_news([])
         self._update_news_card_widths()
+   
+    def _update_bg(self, *args):
+        """Actualizează background-ul când se schimbă dimensiunea screen-ului"""
+        if hasattr(self, 'bg_rect'):
+            self.bg_rect.size = self.size
+            self.bg_rect.pos = self.pos
+
+    def _update_window_bg(self, instance, size):
+        """Actualizează background-ul când se schimbă dimensiunea ferestrei"""
+        if hasattr(self, 'bg_rect'):
+            self.bg_rect.size = size
+            self.bg_rect.pos = (0, 0)
     def _build_floating_chat_button(self):
         """Creează butonul floating pentru chat care plutește deasupra tuturor elementelor"""
         floating_container = AnchorLayout(
@@ -186,8 +204,37 @@ class HomeScreen(MDScreen, Alignment):
         floating_container.add_widget(chat_fab)
         return floating_container
     def _build_header(self):
-        container = MDBoxLayout(orientation="vertical", spacing=dp(4), adaptive_height=True)
-
+    # Container principal cu padding sus
+        main_container = MDBoxLayout(
+            orientation="vertical", 
+            spacing=dp(4), 
+            adaptive_height=True,
+            padding=[0, dp(20), 0, 0]
+        )
+        
+        # Container orizontal pentru logo + text
+        header_row = MDBoxLayout(
+            orientation="horizontal",
+            spacing=dp(12),
+            adaptive_height=True,
+            size_hint_y=None
+        )
+        
+        # Logo/imagine - folosește aceeași abordare ca în SplashScreen
+        logo = Image(
+            source=str(LOGO_PATH),  # Folosește calea absolută ca în SplashScreen
+            size_hint=(None, None),
+            size=(dp(48), dp(48)),
+            pos_hint={'center_y': 0.5}
+        )
+        
+        # Restul codului rămâne la fel...
+        text_container = MDBoxLayout(
+            orientation="vertical",
+            spacing=dp(2),
+            adaptive_height=True
+        )
+        
         title = MDLabel(
             text="Smart ID Wallet",
             font_style="H4",
@@ -208,10 +255,16 @@ class HomeScreen(MDScreen, Alignment):
             adaptive_height=True,
         )
         subtitle.bind(width=self._sync_text_width)
-
-        container.add_widget(title)
-        container.add_widget(subtitle)
-        return container
+        
+        text_container.add_widget(title)
+        text_container.add_widget(subtitle)
+        
+        header_row.add_widget(logo)
+        header_row.add_widget(text_container)
+        
+        main_container.add_widget(header_row)
+        
+        return main_container
 
     def _build_news_section(self):
         section = MDBoxLayout(orientation="vertical", spacing=dp(6), size_hint_y=None, adaptive_height=True)
@@ -229,7 +282,7 @@ class HomeScreen(MDScreen, Alignment):
         section.add_widget(carousel_holder)
 
         dots_holder = AnchorLayout(size_hint=(1, None), height=dp(20))
-        self.dot_container = MDBoxLayout(orientation="horizontal", spacing=dp(3), padding=(0, 0, 0, 0), adaptive_size=True)
+        self.dot_container = MDBoxLayout(orientation="horizontal", spacing=dp(1), padding=(0, 0, 0, 0), adaptive_size=True)
         dots_holder.add_widget(self.dot_container)
         section.add_widget(dots_holder)
         return section
