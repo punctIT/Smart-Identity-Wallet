@@ -125,24 +125,29 @@ class PhotoSuccessScreen(MDScreen, Alignment):
             photo_path: Path to the saved photo
             previous_screen: Name of screen to return to
         """
-        self.photo_path = photo_path
-        self.previous_screen = previous_screen
+        def _update_ui(*args):
+            self.photo_path = photo_path
+            self.previous_screen = previous_screen
+            
+            # Update file name display
+            if self.file_label:
+                self.file_label.text = f"Salvat ca: {photo_path.name}"
+            
+            Logger.info(f"PhotoSuccessScreen: Showing success for {photo_path.name}, returning to {previous_screen}")
+            
+            # Schedule auto return after 3 seconds
+            if self._auto_return_event:
+                self._auto_return_event.cancel()
+            self._auto_return_event = Clock.schedule_once(self._auto_return, 3.0)
         
-        # Update file name display
-        if self.file_label:
-            self.file_label.text = f"Salvat ca: {photo_path.name}"
-        
-        Logger.info(f"PhotoSuccessScreen: Showing success for {photo_path.name}, returning to {previous_screen}")
-        
-        # Schedule auto return after 3 seconds
-        if self._auto_return_event:
-            self._auto_return_event.cancel()
-        self._auto_return_event = Clock.schedule_once(self._auto_return, 3.0)
+        # Ensure UI updates happen on main thread
+        Clock.schedule_once(_update_ui, 0)
     
     def _auto_return(self, *args) -> None:
         """Automatically return to previous screen after timeout."""
         self._auto_return_event = None
-        self._go_back()
+        # Use Clock.schedule_once to ensure navigation happens on main thread
+        Clock.schedule_once(lambda dt: self._go_back(), 0)
     
     def _go_back(self) -> None:
         """Navigate back to the previous screen."""
