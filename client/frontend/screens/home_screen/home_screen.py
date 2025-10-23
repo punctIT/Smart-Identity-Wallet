@@ -66,19 +66,27 @@ CATEGORY_TILE_CONFIG = [
         "title": "Diverse",
         "subtitle": "Alte documente digitale.",
     },
+    {
+        "screen_name": "diverse_docs",
+        "title": "Programari",
+        "subtitle": "Programari la ghiseu.",
+    },
+    {
+        "screen_name": "diverse_docs",
+        "title": "Cere documente",
+        "subtitle": "Creaza o cerere pentru copie a unui document",
+    },
 ]
 
 CATEGORY_SCREEN_NAMES = [item["screen_name"] for item in CATEGORY_TILE_CONFIG]
-
-
 class NewsCard(MDCard):
     def __init__(self, title: str, body: str, accent_color=ACCENT, **kwargs):
         super().__init__(**kwargs)
         self.orientation = "vertical"
-        self.padding = dp(18)
+        self.padding = dp(16)
         self.spacing = dp(8)
         self.size_hint = (None, None)
-        self.height = dp(150)
+        self.height = dp(120)
         self.radius = [dp(20)]
         self.ripple_behavior = False
         self.md_bg_color = CARD_BG
@@ -86,29 +94,48 @@ class NewsCard(MDCard):
         self.shadow_softness = 10
         self.shadow_offset = (0, -4)
 
+        # Spacer top mic
+        self.add_widget(MDLabel(size_hint_y=0.15))
+
+        # Truncate titlul dacă e prea lung
+        truncated_title = self._truncate_text(title, 35)
         self._title = MDLabel(
-            text=title,
+            text=truncated_title,
             font_style="H6",
             theme_text_color="Custom",
             text_color=accent_color,
-            halign="center",
+            halign="left",
+            valign="top",
             adaptive_height=True,
             bold=True,
         )
         self._title.bind(width=self._sync_text_width)
 
+        # Truncate body-ul dacă e prea lung
+        truncated_body = self._truncate_text(body, 80)
         self._body = MDLabel(
-            text=body,
-            font_style="Body2",
+            text=truncated_body,
+            font_style="Caption",
             theme_text_color="Custom",
             text_color=TEXT_SECONDARY,
             halign="left",
+            valign="top",
             adaptive_height=True,
         )
         self._body.bind(width=self._sync_text_width)
 
         self.add_widget(self._title)
         self.add_widget(self._body)
+        
+        # Spacer bottom mic
+        self.add_widget(MDLabel(size_hint_y=0.15))
+
+    @staticmethod
+    def _truncate_text(text: str, max_length: int) -> str:
+        """Truncate text și adaugă ... dacă e prea lung"""
+        if len(text) <= max_length:
+            return text
+        return text[:max_length-3] + "..."
 
     @staticmethod
     def _sync_text_width(label, value):
@@ -273,7 +300,7 @@ class HomeScreen(MDScreen, Alignment):
             size_hint=(None, None),
             size=(dp(48), dp(48)),
             elevation=16,
-            on_release=lambda *_: self._go_to_screen("chat")
+            on_release=lambda *_: self._go_to_chat()
         )
         
         floating_container.add_widget(chat_fab)
@@ -479,6 +506,13 @@ class HomeScreen(MDScreen, Alignment):
                 app.stop()
             return True
         return False
+
+    def _go_to_chat(self):
+        from kivy.uix.screenmanager import FadeTransition
+        old_transition = self.sm.transition
+        self.sm.transition = FadeTransition(duration=0.4)
+        self.sm.current = 'chat'
+        self.sm.transition = old_transition 
 
     def _go_to_screen(self, name):
         if not self.sm or not self.sm.has_screen(name):
