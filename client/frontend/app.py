@@ -17,7 +17,7 @@ from frontend.screens.register_screen import RegisterScreen
 from frontend.screens.splash_screen import SplashScreen
 from frontend.screens.server_setup_screen import ServerSetupScreen
 from frontend.screens.chat_screens.chat_screen import ChatScreen
-
+from frontend.screens.cards_screen.idenity_card import IDScreen
 
 
 
@@ -59,12 +59,20 @@ class SwipeScreenManager(ScreenManager):
                             self.transition.direction = 'right'
                             self.current = 'home'
                             return True
+                    if self.current=='identity_card':
+                        self.transition.direction = 'right'
+                        self.current = 'personal_docs'
+                        return True
                 else:
                     for screen in ["personal_docs","transport_docs","vehicul_docs",'diverse_docs','camera_scan','chat']:
                         if self.current == screen:
                             self.transition.direction = 'left'
                             self.current = 'home'
                             return True
+                    if self.current=='identity_card':
+                        self.transition.direction = 'left'
+                        self.current = 'personal_docs'
+                        return True
                             
         return super().on_touch_up(touch)
 
@@ -88,7 +96,7 @@ class SmartIdApp(MDApp):
         sm.add_widget(DiverseDocsScreen(self.server))
         sm.add_widget(CameraScanScreen(self.server))
         sm.add_widget(ChatScreen(self.server))
-
+        sm.add_widget(IDScreen(self.server))
         sm.current = 'server_setup'
         
         Window.bind(on_key_down=self._on_key_down)

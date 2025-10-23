@@ -19,6 +19,15 @@ class Card(BoxLayout):
         self.bg.pos = self.pos
         self.bg.size = self.size
 
+
+def match_name(name)->str:
+    if name=='identity_card':
+        return "Carte de identitate"
+    if name=='driving_license':
+        return "Carnet de conducere"
+    else :
+        return name
+
 class PersonalDocsScreen(Screen):
     def __init__(self, server=None, **kwargs):
         super().__init__(name='personal_docs', **kwargs)
@@ -78,7 +87,7 @@ class PersonalDocsScreen(Screen):
             # Acceptă fie dict cu 'title', fie string
             title = doc_name['title'] if isinstance(doc_name, dict) and 'title' in doc_name else str(doc_name)
             btn = Button(
-                text=f"[b]{title}[/b]",
+                text=f"[b]{match_name(title)}[/b]",
                 markup=True,
                 font_size=sp(22),
                 color=(0.92, 0.95, 1.00, 1),
@@ -89,7 +98,12 @@ class PersonalDocsScreen(Screen):
             )
             btn.bind(size=lambda instance, value: setattr(instance, "text_size", value))
             # Print the name when button is pressed
-            btn.bind(on_press=lambda instance, name=title: print(name))
+            def go_card(name):
+                if self.manager.has_screen(name):
+                    self.manager.current = name
+                else:
+                    self.manager.current = 'home'
+            btn.bind(on_press=lambda instance, name=title: go_card(name))
             card.add_widget(btn)
             self.doc_container.add_widget(card)
 
