@@ -7,6 +7,7 @@ from kivy.uix.scrollview import ScrollView
 from kivy.graphics import Color, RoundedRectangle
 from kivy.metrics import dp, sp
 from frontend.screens.popup_screens.pop_card import CardPopup
+from frontend.screens.popup_screens.qr_popup import QrPopup 
 
 class Card(BoxLayout):
     def __init__(self, height=dp(80), radius=dp(22), bg_color=(0.18, 0.20, 0.25, 1), **kwargs):
@@ -89,9 +90,12 @@ class PersonalDocsScreen(Screen):
         self.clear_docs()
         for doc_name in doc_names:
             card = Card()
+            
             # Acceptă fie dict cu 'title', fie string
             title = doc_name['title'] if isinstance(doc_name, dict) and 'title' in doc_name else str(doc_name)
-            btn = Button(
+            
+            # Butonul principal pentru textul documentului
+            main_btn = Button(
                 text=f"[b]{match_name(title)}[/b]",
                 markup=True,
                 font_size=sp(22),
@@ -99,15 +103,37 @@ class PersonalDocsScreen(Screen):
                 background_normal='',
                 background_color=(0,0,0,0),
                 halign="left",
-                valign="middle"
+                valign="middle",
+                size_hint_x=0.8  # Ocupă 80% din lățime
             )
-            btn.bind(size=lambda instance, value: setattr(instance, "text_size", value))
-            # Print the name when button is pressed
+            main_btn.bind(size=lambda instance, value: setattr(instance, "text_size", value))
+            
             def go_card(name):
                 popup = CardPopup(self.server, name)
                 popup.show_popup()
-            btn.bind(on_press=lambda instance, name=title: go_card(name))
-            card.add_widget(btn)
+            main_btn.bind(on_press=lambda instance, name=title: go_card(name))
+            
+            # Butonul QR în dreapta
+            qr_btn = Button(
+                text="[b]QR[/b]",
+                markup=True,
+                font_size=sp(16),
+                color=(0.25, 0.60, 1.00, 1),
+                background_normal='',
+                background_color=(0.15, 0.17, 0.21, 1),  # Culoare puțin mai închisă
+                size_hint_x=0.2,  # Ocupă 20% din lățime
+                size_hint_y=0.8,  # Un pic mai mic pe înălțime
+                pos_hint={'center_y': 0.5}  # Centrat pe verticală
+            )
+            
+            def show_qr(name):
+                popup = QrPopup("GetIdenityCard",self.server, name) 
+                popup.show_popup()
+            qr_btn.bind(on_press=lambda instance, name=title: show_qr(name))
+            
+            # Adaugă ambele butoane în card
+            card.add_widget(main_btn)
+            card.add_widget(qr_btn)
             self.doc_container.add_widget(card)
 
         # Card pentru "Adaugă document"
@@ -134,7 +160,6 @@ class PersonalDocsScreen(Screen):
         )
         add_label.bind(size=lambda instance, value: setattr(instance, "text_size", value))
         def go_cam(*args):
-            #print("as")
             self.manager.current = 'camera_scan' 
         plus_btn.bind(on_press= go_cam)
         add_box.add_widget(plus_btn)
