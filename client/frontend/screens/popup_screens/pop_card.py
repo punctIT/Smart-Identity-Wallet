@@ -17,10 +17,11 @@ def match_name(name)->str:
         return name
 
 class CardPopup:
-    def __init__(self, server, card_name):
+    def __init__(self, entry_point,server, card_name):
         self.server = server
         self.card_name = card_name
         self.dialog = None
+        self.ep=entry_point
         
     def show_popup(self):
         content = BoxLayout(orientation="vertical", spacing=dp(12), size_hint_y=None, height=dp(500))
@@ -29,10 +30,10 @@ class CardPopup:
         scroll = ScrollView(size_hint=(1, 0.9))
         doc_container = BoxLayout(orientation='vertical', size_hint_y=None, spacing=dp(8))
         doc_container.bind(minimum_height=doc_container.setter('height'))
-        
+        print(self.ep)
         # Get data and populate
-        data = self.server.get_specific_data("GetIdenityCard")
-        print(f"Popup data: {data}")  # Debug print
+        data = self.server.get_specific_data(self.ep)
+        #print(f"Popup data: {data}")  # Debug print
         if data and 'data' in data:
             for key, value in data['data'].items():
                 doc_container.add_widget(Label(

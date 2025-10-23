@@ -6,7 +6,7 @@ from kivy.uix.button import Button
 from kivy.uix.scrollview import ScrollView
 from kivy.graphics import Color, RoundedRectangle
 from kivy.metrics import dp, sp
-from frontend.screens.pop_card import CardPopup
+from frontend.screens.popup_screens.pop_card import CardPopup
 
 class Card(BoxLayout):
     def __init__(self, height=dp(80), radius=dp(22), bg_color=(0.18, 0.20, 0.25, 1), **kwargs):
