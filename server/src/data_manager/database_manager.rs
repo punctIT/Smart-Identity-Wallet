@@ -150,4 +150,19 @@ impl DBManager {
 
         Ok(results)
     }
+    pub async fn select_row(&self, query: String) -> Result<Vec<String>, Error> {
+        use tokio_postgres::Row;
+        let row: Row = self.client.query_one(query.as_str(), &[]).await?;
+        let mut result = Vec::new();
+
+        for i in 0..row.len() {
+            let value: String = match row.try_get(i) {
+                Ok(v) => v,
+                Err(_) => String::from("NULL"),
+            };
+            result.push(value);
+        }
+
+        Ok(result)
+    }
 }
