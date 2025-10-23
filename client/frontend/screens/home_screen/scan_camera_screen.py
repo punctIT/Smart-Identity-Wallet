@@ -64,6 +64,7 @@ class CameraScanScreen(MDScreen, Alignment):
         # Ne bazăm pe obiectul dialogului pentru a gestiona starea deschis/închis.
         self._processing_dialog: Optional[MDDialog] = None
         self._processing_event = None
+        self._fallback_label: Optional[MDLabel] = None
 
         self._build_ui()
 
@@ -89,7 +90,7 @@ class CameraScanScreen(MDScreen, Alignment):
         
         self.camera_holder = MDBoxLayout(
             orientation="vertical",
-            size_hint=(1, 1),
+            size_hint=(1, 0.85),  # Take more space, leaving room for controls
             padding=(0, 0, 0, 0),
             spacing=0,
         )
@@ -97,8 +98,7 @@ class CameraScanScreen(MDScreen, Alignment):
 
         controls = MDBoxLayout(
             orientation="horizontal",
-            size_hint_y=None,
-            height=dp(72),
+            size_hint=(1, 0.15),  # Use remaining space
             padding=(dp(12), dp(8)),
         )
         controls.add_widget(Widget())
@@ -121,14 +121,70 @@ class CameraScanScreen(MDScreen, Alignment):
     def on_pre_enter(self, *_):
         super().on_pre_enter()
         self._ensure_camera_ready()
-        # MODIFICARE: Mutăm logica de play în _init_camera_widget pentru coerență
-        # și ne bazăm pe _init_camera_widget să pornească camera după permisiuni/configurare.
+        # Bind app lifecycle events pentru Android
+        if platform == "android":
+            app = App.get_running_app()
+            if app and hasattr(app, 'bind'):
+                app.bind(on_pause=self._on_app_pause)
+                app.bind(on_resume=self._on_app_resume)
+
+    def on_enter(self, *_):
+        """Called when screen becomes active - restart camera if needed."""
+        super().on_enter()
+        if self.camera_view and not self.camera_view.play:
+            try:
+                self.camera_view.play = True
+            except Exception as e:
+                Logger.warning(f"CameraScanScreen: Failed to restart camera on enter: {e}")
 
     def on_leave(self, *_):
         super().on_leave()
         if self.camera_view:
             self.camera_view.play = False
         self._cancel_processing_flow()
+        # Unbind app lifecycle events
+        if platform == "android":
+            app = App.get_running_app()
+            if app and hasattr(app, 'unbind'):
+                try:
+                    app.unbind(on_pause=self._on_app_pause)
+                    app.unbind(on_resume=self._on_app_resume)
+                except:
+                    pass
+
+    # ------------------------------------------------------------------
+    # App lifecycle handlers (Android)
+    # ------------------------------------------------------------------
+    def _on_app_pause(self, *args):
+        """Called when app is paused (minimized, switched away)."""
+        if self.camera_view:
+            try:
+                self.camera_view.play = False
+                Logger.info("CameraScanScreen: Camera paused due to app pause")
+            except Exception as e:
+                Logger.warning(f"CameraScanScreen: Failed to pause camera: {e}")
+        return True  # Allow pause
+
+    def _on_app_resume(self, *args):
+        """Called when app is resumed (brought back to foreground)."""
+        # Only restart camera if this screen is currently active
+        if hasattr(self, 'manager') and self.manager and self.manager.current == self.name:
+            if self.camera_view:
+                # Add small delay to ensure system is ready
+                Clock.schedule_once(self._restart_camera, 0.5)
+                Logger.info("CameraScanScreen: Scheduled camera restart after app resume")
+
+    def _restart_camera(self, *args):
+        """Restart camera after app resume."""
+        if self.camera_view:
+            try:
+                self.camera_view.play = True
+                Logger.info("CameraScanScreen: Camera restarted after resume")
+            except Exception as e:
+                Logger.error(f"CameraScanScreen: Failed to restart camera: {e}")
+                # If restart fails, reinitialize the whole camera
+                self._dispose_camera()
+                self._ensure_camera_ready()
 
     # ------------------------------------------------------------------
     # Permissions + camera setup
@@ -188,7 +244,10 @@ class CameraScanScreen(MDScreen, Alignment):
             return
 
         # MODIFICARE: Aplicăm rotația imediat, înainte de a adăuga la layout
-        camera.size_hint = (1, 1) # Setăm size_hint la (1, 1) pentru a umple containerul
+        # Setăm camera să ocupe tot spațiul disponibil și să mențină aspect ratio
+        camera.size_hint = (1, 1)
+        camera.allow_stretch = True  # Permite stretch pentru dimensiuni mai mari
+        camera.keep_ratio = True     # Menține aspect ratio
 
         # Rotirea 90° stânga
         with camera.canvas.before:
@@ -226,14 +285,24 @@ class CameraScanScreen(MDScreen, Alignment):
             self._camera_error_label.parent.remove_widget(self._camera_error_label)
             self._camera_error_label = None
 
-        try:
-            camera.play = True
-        except Exception as exc:  # noqa: BLE001
-            Logger.error(f"CameraScanScreen: unable to start camera preview: {exc}")
-            print(f"[Camera] start preview failed: {exc}", flush=True)
-            self._show_camera_error("Camera indisponibilă.\nNu am reușit să pornesc previzualizarea.")
-            self._dispose_camera()
-            return
+        # Start camera with retry mechanism for mobile stability
+        def _start_camera_with_retry(attempt=0):
+            try:
+                camera.play = True
+                Logger.info("CameraScanScreen: Camera started successfully")
+            except Exception as exc:  # noqa: BLE001
+                Logger.error(f"CameraScanScreen: unable to start camera preview (attempt {attempt + 1}): {exc}")
+                print(f"[Camera] start preview failed (attempt {attempt + 1}): {exc}", flush=True)
+                
+                if attempt < 2 and platform == "android":  # Retry up to 3 times on Android
+                    Logger.info(f"CameraScanScreen: Retrying camera start in 1 second...")
+                    Clock.schedule_once(lambda dt: _start_camera_with_retry(attempt + 1), 1.0)
+                else:
+                    self._show_camera_error("Camera indisponibilă.\nNu am reușit să pornesc previzualizarea.")
+                    self._dispose_camera()
+                    return
+        
+        _start_camera_with_retry()
 
         if self.capture_button:
             self.capture_button.disabled = False
@@ -349,23 +418,32 @@ class CameraScanScreen(MDScreen, Alignment):
         Creează/deschide popup-ul tranzitoriu. 
         MODIFICARE: Logică simplificată pentru a preveni erorile de stări deschise.
         """
-        # Creare dialog dacă nu există
-        if self._processing_dialog is None:
-            self._processing_dialog = MDDialog(
-                title=title,
-                text=text,
-                auto_dismiss=False, 
-            )
-        else:
-            # Actualizează conținutul dialogului existent
-            self._processing_dialog.title = title
-            self._processing_dialog.text = text
+        # Închide și șterge dialogul existent pentru a evita probleme de stare
+        if self._processing_dialog:
+            try:
+                self._processing_dialog.dismiss()
+            except:
+                pass
+            self._processing_dialog = None
+        
+        # Creează un dialog nou de fiecare dată
+        self._processing_dialog = MDDialog(
+            title=title,
+            text=text,
+            auto_dismiss=False,
+            size_hint=(0.8, None),
+            height=dp(200)
+        )
 
-        # Deschide dialogul (MDDialog.open() este idempotent - nu deschide dacă e deja deschis)
+        # Deschide dialogul
         try:
             self._processing_dialog.open()
         except Exception as e:
             Logger.error(f"CameraScanScreen: Failed to open dialog: {e}")
+            # Fallback - folosește print pentru debugging pe APK
+            print(f"[Camera] Dialog error: {e}, showing message: {title} - {text}", flush=True)
+            # Fallback - arată un label temporar peste UI
+            self._show_fallback_notification(f"{title}: {text}")
 
 
     def _finish_processing(self, *_):
@@ -382,12 +460,42 @@ class CameraScanScreen(MDScreen, Alignment):
         self._dismiss_processing_dialog()
         self._go_back()
 
+    def _show_fallback_notification(self, message: str) -> None:
+        """Arată un label temporar ca fallback dacă MDDialog nu funcționează."""
+        if self._fallback_label:
+            if self._fallback_label.parent:
+                self._fallback_label.parent.remove_widget(self._fallback_label)
+        
+        self._fallback_label = MDLabel(
+            text=message,
+            theme_text_color="Custom",
+            text_color=(1, 1, 1, 1),
+            pos_hint={"center_x": 0.5, "center_y": 0.5},
+            size_hint=(0.8, None),
+            height=dp(100),
+            halign="center",
+            markup=True
+        )
+        
+        if self.camera_holder:
+            self.camera_holder.add_widget(self._fallback_label)
+
     def _dismiss_processing_dialog(self) -> None:
         """
         Închide dialogul dacă este deschis.
         """
         if self._processing_dialog:
-            self._processing_dialog.dismiss()
+            try:
+                self._processing_dialog.dismiss()
+            except Exception as e:
+                Logger.warning(f"CameraScanScreen: Failed to dismiss dialog: {e}")
+            finally:
+                self._processing_dialog = None
+        
+        # Șterge și fallback label-ul dacă există
+        if self._fallback_label and self._fallback_label.parent:
+            self._fallback_label.parent.remove_widget(self._fallback_label)
+            self._fallback_label = None
 
     def _cancel_processing_flow(self) -> None:
         """Anulează evenimentele temporizate și închide dialogul."""
