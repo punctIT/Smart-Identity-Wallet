@@ -18,7 +18,7 @@ from frontend.screens.splash_screen import SplashScreen
 from frontend.screens.server_setup_screen import ServerSetupScreen
 from frontend.screens.chat_screens.chat_screen import ChatScreen
 from frontend.screens.cards_screen.idenity_card import IDScreen
-
+from frontend.screens.settings.settings import SettingsScreen
 
 
 if platform == "android":
@@ -97,6 +97,7 @@ class SmartIdApp(MDApp):
         sm.add_widget(CameraScanScreen(self.server))
         sm.add_widget(ChatScreen(self.server))
         sm.add_widget(IDScreen(self.server))
+        sm.add_widget(SettingsScreen(self.server))
         sm.current = 'server_setup'
         
         Window.bind(on_key_down=self._on_key_down)
