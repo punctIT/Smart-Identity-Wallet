@@ -16,9 +16,6 @@ from kivymd.uix.boxlayout import MDBoxLayout
 from kivymd.uix.button import MDIconButton
 from kivymd.uix.label import MDLabel
 from kivymd.uix.screen import MDScreen
-from kivy.uix.popup import Popup
-from kivy.uix.boxlayout import BoxLayout
-
 from kivy_garden.xcamera.xcamera import XCamera
 
 from frontend.screens.widgets.custom_alignment import Alignment
@@ -59,11 +56,6 @@ class CameraScanScreen(MDScreen, Alignment):
         self._rotation = None
         self.capture_button: Optional[MDIconButton] = None
         self._capture_in_progress = False
-
-        # Popup/progress flow
-        # Using simple Kivy Popup instead of MDDialog for better mobile compatibility
-        self._processing_popup: Optional[Popup] = None
-        self._processing_event = None
 
         self._build_ui()
 
@@ -140,7 +132,6 @@ class CameraScanScreen(MDScreen, Alignment):
         super().on_leave()
         if self.camera_view:
             self.camera_view.play = False
-        self._cancel_processing_flow()
         # Unbind app lifecycle events
         if platform == "android":
             app = App.get_running_app()
@@ -399,92 +390,47 @@ class CameraScanScreen(MDScreen, Alignment):
     # Popup flow (SHOW → wait → CLOSE → back)
     # ------------------------------------------------------------------
     def _on_capture_completed(self, filepath: Path) -> None:
-        """Called after XCamera fired on_picture_taken."""
-        msg = f"Fotografie salvată:\n[b]{filepath.name}[/b]"
+        """Called after XCamera fired on_picture_taken - navigate to success screen."""
+        Logger.info(f"CameraScanScreen: Photo captured, navigating to success screen")
         
-        self._show_processing_dialog(title="Succes", text=msg)
-        
-        # Setează evenimentul de închidere după 2 secunde
-        if self._processing_event:
-            self._processing_event.cancel()
-        self._processing_event = Clock.schedule_once(self._finish_processing, 2.0)
-        
-        # Butonul este dezactivat la începutul capturii, va fi activat doar după navigare.
-
-    def _show_processing_dialog(self, title: str = "Procesare",
-                                text: str = "Se procesează...", seconds: float | None = None) -> None:
-        """
-        Creează/deschide popup-ul cu Kivy Popup pentru mai bună compatibilitate mobile.
-        """
-        # Închide popup-ul existent dacă există
-        if self._processing_popup:
-            self._processing_popup.dismiss()
-            self._processing_popup = None
-        
-        # Creează conținutul popup-ului
-        content = BoxLayout(orientation='vertical', spacing=dp(20), padding=dp(20))
-        
-        # Adaugă textul
-        text_label = Label(
-            text=text,
-            font_size=dp(16),
-            color=(1, 1, 1, 1),
-            text_size=(dp(250), None),
-            halign='center',
-            valign='middle'
-        )
-        content.add_widget(text_label)
-        
-        # Creează popup-ul
-        self._processing_popup = Popup(
-            title=title,
-            content=content,
-            size_hint=(0.8, 0.6),
-            auto_dismiss=False,
-            title_size=dp(18)
-        )
-
-        # Deschide popup-ul
-        try:
-            self._processing_popup.open()
-            Logger.info(f"CameraScanScreen: Popup opened successfully: {title}")
-        except Exception as e:
-            Logger.error(f"CameraScanScreen: Failed to open popup: {e}")
-            print(f"[Camera] Popup error: {e}, showing message: {title} - {text}", flush=True)
-
-
-    def _finish_processing(self, *_):
-        """
-        Închide dialogul și navighează înapoi.
-        """
-        self._processing_event = None
-        
-        # MODIFICARE: Resetăm starea înainte de a închide și naviga.
-        self._capture_in_progress = False 
+        # Stop camera before navigating
+        if self.camera_view:
+            self.camera_view.play = False
+            
+        # Reset capture state
+        self._capture_in_progress = False
         if self.capture_button:
             self.capture_button.disabled = False
             
-        self._dismiss_processing_dialog()
-        self._go_back()
+        # Navigate to success screen
+        manager = getattr(self, "manager", None)
+        if manager:
+            # Ensure success screen exists
+            if not manager.has_screen("photo_success"):
+                from frontend.screens.photo_success_screen import PhotoSuccessScreen
+                success_screen = PhotoSuccessScreen()
+                manager.add_widget(success_screen)
+            
+            # Set transition direction
+            tr = getattr(manager, "transition", None)
+            prev_dir = getattr(tr, "direction", None)
+            if tr:
+                tr.direction = "up"
+            
+            # Navigate to success screen
+            manager.current = "photo_success"
+            
+            # Tell success screen to show success and return to home
+            success_screen = manager.get_screen("photo_success")
+            success_screen.show_success(filepath, "home")
+            
+            # Restore previous transition direction
+            if tr and prev_dir:
+                tr.direction = prev_dir
+        else:
+            Logger.warning("CameraScanScreen: No screen manager available")
 
-    def _dismiss_processing_dialog(self) -> None:
-        """
-        Închide popup-ul dacă este deschis.
-        """
-        if self._processing_popup:
-            try:
-                self._processing_popup.dismiss()
-            except Exception as e:
-                Logger.warning(f"CameraScanScreen: Failed to dismiss popup: {e}")
-            finally:
-                self._processing_popup = None
 
-    def _cancel_processing_flow(self) -> None:
-        """Anulează evenimentele temporizate și închide dialogul."""
-        if self._processing_event:
-            self._processing_event.cancel()
-            self._processing_event = None
-        self._dismiss_processing_dialog()
 
     # ------------------------------------------------------------------
     # Error + navigation
@@ -506,7 +452,6 @@ class CameraScanScreen(MDScreen, Alignment):
         if self.capture_button:
             self.capture_button.disabled = True
         self._capture_in_progress = False
-        self._cancel_processing_flow()
 
     def _remove_default_capture_button(self) -> None:
         """Remove the stock XCamera capture button so our custom control is the only one."""
@@ -537,7 +482,6 @@ class CameraScanScreen(MDScreen, Alignment):
         if self.capture_button:
             self.capture_button.disabled = True
         self._capture_in_progress = False
-        self._cancel_processing_flow()
 
     # ------------------------------------------------------------------
     # Capture actions
