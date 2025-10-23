@@ -503,69 +503,16 @@ class CameraScanScreen(MDScreen, Alignment):
 
     def _cancel_processing_flow(self) -> None:
         """Cancel any scheduled events and remove overlay."""
-        if self._notification_event:
+        if hasattr(self, '_notification_event') and self._notification_event:
             self._notification_event.cancel()
             self._notification_event = None
         self._remove_notification_overlay()
 
+    # ------------------------------------------------------------------
+    # Error + navigation
+    # ------------------------------------------------------------------
 
-    def _finish_processing(self, *_):
-        """
-        Închide dialogul și navighează înapoi.
-        """
-        self._processing_event = None
-        
-        # MODIFICARE: Resetăm starea înainte de a închide și naviga.
-        self._capture_in_progress = False 
-        if self.capture_button:
-            self.capture_button.disabled = False
-            
-        self._dismiss_processing_dialog()
-        self._go_back()
 
-    def _show_fallback_notification(self, message: str) -> None:
-        """Arată un label temporar ca fallback dacă MDDialog nu funcționează."""
-        if self._fallback_label:
-            if self._fallback_label.parent:
-                self._fallback_label.parent.remove_widget(self._fallback_label)
-        
-        self._fallback_label = MDLabel(
-            text=message,
-            theme_text_color="Custom",
-            text_color=(1, 1, 1, 1),
-            pos_hint={"center_x": 0.5, "center_y": 0.5},
-            size_hint=(0.8, None),
-            height=dp(100),
-            halign="center",
-            markup=True
-        )
-        
-        if self.camera_holder:
-            self.camera_holder.add_widget(self._fallback_label)
-
-    def _dismiss_processing_dialog(self) -> None:
-        """
-        Închide dialogul dacă este deschis.
-        """
-        if self._processing_dialog:
-            try:
-                self._processing_dialog.dismiss()
-            except Exception as e:
-                Logger.warning(f"CameraScanScreen: Failed to dismiss dialog: {e}")
-            finally:
-                self._processing_dialog = None
-        
-        # Șterge și fallback label-ul dacă există
-        if self._fallback_label and self._fallback_label.parent:
-            self._fallback_label.parent.remove_widget(self._fallback_label)
-            self._fallback_label = None
-
-    def _cancel_processing_flow(self) -> None:
-        """Anulează evenimentele temporizate și închide dialogul."""
-        if self._processing_event:
-            self._processing_event.cancel()
-            self._processing_event = None
-        self._dismiss_processing_dialog()
 
     # ------------------------------------------------------------------
     # Error + navigation
