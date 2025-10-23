@@ -16,8 +16,6 @@ from kivymd.uix.boxlayout import MDBoxLayout
 from kivymd.uix.button import MDIconButton
 from kivymd.uix.label import MDLabel
 from kivymd.uix.screen import MDScreen
-from kivymd.uix.dialog import MDDialog
-
 from kivy_garden.xcamera.xcamera import XCamera
 
 from frontend.screens.widgets.custom_alignment import Alignment
@@ -58,13 +56,6 @@ class CameraScanScreen(MDScreen, Alignment):
         self._rotation = None
         self.capture_button: Optional[MDIconButton] = None
         self._capture_in_progress = False
-
-        # Popup/progress flow
-        # MODIFICARE: Păstrăm MDDialog, dar nu mai folosim _processing_dialog_open
-        # Ne bazăm pe obiectul dialogului pentru a gestiona starea deschis/închis.
-        self._processing_dialog: Optional[MDDialog] = None
-        self._processing_event = None
-        self._fallback_label: Optional[MDLabel] = None
 
         self._build_ui()
 
@@ -141,7 +132,6 @@ class CameraScanScreen(MDScreen, Alignment):
         super().on_leave()
         if self.camera_view:
             self.camera_view.play = False
-        self._cancel_processing_flow()
         # Unbind app lifecycle events
         if platform == "android":
             app = App.get_running_app()
@@ -400,109 +390,47 @@ class CameraScanScreen(MDScreen, Alignment):
     # Popup flow (SHOW → wait → CLOSE → back)
     # ------------------------------------------------------------------
     def _on_capture_completed(self, filepath: Path) -> None:
-        """Called after XCamera fired on_picture_taken."""
-        msg = f"Fotografie salvată:\n[b]{filepath.name}[/b]"
+        """Called after XCamera fired on_picture_taken - navigate to success screen."""
+        Logger.info(f"CameraScanScreen: Photo captured, navigating to success screen")
         
-        self._show_processing_dialog(title="Succes", text=msg)
-        
-        # Setează evenimentul de închidere după 2 secunde
-        if self._processing_event:
-            self._processing_event.cancel()
-        self._processing_event = Clock.schedule_once(self._finish_processing, 2.0)
-        
-        # Butonul este dezactivat la începutul capturii, va fi activat doar după navigare.
-
-    def _show_processing_dialog(self, title: str = "Procesare",
-                                text: str = "Se procesează...", seconds: float | None = None) -> None:
-        """
-        Creează/deschide popup-ul tranzitoriu. 
-        MODIFICARE: Logică simplificată pentru a preveni erorile de stări deschise.
-        """
-        # Închide și șterge dialogul existent pentru a evita probleme de stare
-        if self._processing_dialog:
-            try:
-                self._processing_dialog.dismiss()
-            except:
-                pass
-            self._processing_dialog = None
-        
-        # Creează un dialog nou de fiecare dată
-        self._processing_dialog = MDDialog(
-            title=title,
-            text=text,
-            auto_dismiss=False,
-            size_hint=(0.8, None),
-            height=dp(200)
-        )
-
-        # Deschide dialogul
-        try:
-            self._processing_dialog.open()
-        except Exception as e:
-            Logger.error(f"CameraScanScreen: Failed to open dialog: {e}")
-            # Fallback - folosește print pentru debugging pe APK
-            print(f"[Camera] Dialog error: {e}, showing message: {title} - {text}", flush=True)
-            # Fallback - arată un label temporar peste UI
-            self._show_fallback_notification(f"{title}: {text}")
-
-
-    def _finish_processing(self, *_):
-        """
-        Închide dialogul și navighează înapoi.
-        """
-        self._processing_event = None
-        
-        # MODIFICARE: Resetăm starea înainte de a închide și naviga.
-        self._capture_in_progress = False 
+        # Stop camera before navigating
+        if self.camera_view:
+            self.camera_view.play = False
+            
+        # Reset capture state
+        self._capture_in_progress = False
         if self.capture_button:
             self.capture_button.disabled = False
             
-        self._dismiss_processing_dialog()
-        self._go_back()
+        # Navigate to success screen
+        manager = getattr(self, "manager", None)
+        if manager:
+            # Ensure success screen exists
+            if not manager.has_screen("photo_success"):
+                from frontend.screens.photo_success_screen import PhotoSuccessScreen
+                success_screen = PhotoSuccessScreen()
+                manager.add_widget(success_screen)
+            
+            # Set transition direction
+            tr = getattr(manager, "transition", None)
+            prev_dir = getattr(tr, "direction", None)
+            if tr:
+                tr.direction = "up"
+            
+            # Navigate to success screen
+            manager.current = "photo_success"
+            
+            # Tell success screen to show success and return to home
+            success_screen = manager.get_screen("photo_success")
+            success_screen.show_success(filepath, "home")
+            
+            # Restore previous transition direction
+            if tr and prev_dir:
+                tr.direction = prev_dir
+        else:
+            Logger.warning("CameraScanScreen: No screen manager available")
 
-    def _show_fallback_notification(self, message: str) -> None:
-        """Arată un label temporar ca fallback dacă MDDialog nu funcționează."""
-        if self._fallback_label:
-            if self._fallback_label.parent:
-                self._fallback_label.parent.remove_widget(self._fallback_label)
-        
-        self._fallback_label = MDLabel(
-            text=message,
-            theme_text_color="Custom",
-            text_color=(1, 1, 1, 1),
-            pos_hint={"center_x": 0.5, "center_y": 0.5},
-            size_hint=(0.8, None),
-            height=dp(100),
-            halign="center",
-            markup=True
-        )
-        
-        if self.camera_holder:
-            self.camera_holder.add_widget(self._fallback_label)
 
-    def _dismiss_processing_dialog(self) -> None:
-        """
-        Închide dialogul dacă este deschis.
-        """
-        if self._processing_dialog:
-            try:
-                self._processing_dialog.dismiss()
-            except Exception as e:
-                Logger.warning(f"CameraScanScreen: Failed to dismiss dialog: {e}")
-            finally:
-                self._processing_dialog = None
-        
-        # Șterge și fallback label-ul dacă există
-        if self._fallback_label and self._fallback_label.parent:
-            self._fallback_label.parent.remove_widget(self._fallback_label)
-            self._fallback_label = None
-
-    def _cancel_processing_flow(self) -> None:
-        """Anulează evenimentele temporizate și închide dialogul."""
-        if self._processing_event:
-            self._processing_event.cancel()
-            self._processing_event = None
-        self._dismiss_processing_dialog()
 
     # ------------------------------------------------------------------
     # Error + navigation
@@ -524,7 +452,6 @@ class CameraScanScreen(MDScreen, Alignment):
         if self.capture_button:
             self.capture_button.disabled = True
         self._capture_in_progress = False
-        self._cancel_processing_flow()
 
     def _remove_default_capture_button(self) -> None:
         """Remove the stock XCamera capture button so our custom control is the only one."""
@@ -555,7 +482,6 @@ class CameraScanScreen(MDScreen, Alignment):
         if self.capture_button:
             self.capture_button.disabled = True
         self._capture_in_progress = False
-        self._cancel_processing_flow()
 
     # ------------------------------------------------------------------
     # Capture actions
