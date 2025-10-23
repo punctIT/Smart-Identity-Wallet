@@ -35,6 +35,23 @@ class SwipeScreenManager(ScreenManager):
         self.transition = SlideTransition(direction='up', duration=0.2)
         self.touch_start_pos = None
         self.min_swipe_distance = 100
+        self.previous_screen_name = None  # Track previous screen
+    
+    @property
+    def current(self):
+        return super().current
+    
+    @current.setter 
+    def current(self, value):
+        # Store previous screen name before changing
+        if hasattr(self, '_current') and self._current != value:
+            self.previous_screen_name = self._current
+            # If navigating to camera, set source screen
+            if value == "camera_scan" and self.has_screen("camera_scan"):
+                camera_screen = self.get_screen("camera_scan")
+                if hasattr(camera_screen, 'set_source_screen') and self.previous_screen_name:
+                    camera_screen.set_source_screen(self.previous_screen_name)
+        super(SwipeScreenManager, self.__class__).current.__set__(self, value)
         
     def on_touch_down(self, touch):
         self.touch_start_pos = touch.pos

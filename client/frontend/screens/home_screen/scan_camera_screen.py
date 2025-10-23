@@ -56,8 +56,14 @@ class CameraScanScreen(MDScreen, Alignment):
         self._rotation = None
         self.capture_button: Optional[MDIconButton] = None
         self._capture_in_progress = False
+        self.source_screen: str = "home"  # Track which screen opened the camera
 
         self._build_ui()
+
+    def set_source_screen(self, screen_name: str) -> None:
+        """Set which screen opened the camera to return to it later."""
+        self.source_screen = screen_name
+        Logger.info(f"CameraScanScreen: Source screen set to {screen_name}")
 
     # ------------------------------------------------------------------
     # UI
@@ -111,6 +117,12 @@ class CameraScanScreen(MDScreen, Alignment):
     # ------------------------------------------------------------------
     def on_pre_enter(self, *_):
         super().on_pre_enter()
+        # Store which screen we came from if not already set
+        if hasattr(self, 'manager') and self.manager:
+            prev_screen = getattr(self.manager, 'previous_screen_name', None)
+            if prev_screen and prev_screen != "camera_scan":
+                self.source_screen = prev_screen
+        
         self._ensure_camera_ready()
         # Bind app lifecycle events pentru Android
         if platform == "android":
@@ -256,13 +268,11 @@ class CameraScanScreen(MDScreen, Alignment):
         def on_picture(_, filepath):
             Logger.info(f"CameraScanScreen: Saved photo -> {filepath}")
             print(f"[Camera] photo saved -> {filepath}", flush=True)
-            self._capture_in_progress = False
-            if self.capture_button:
-                self.capture_button.disabled = False
+            # Use Clock.schedule_once to ensure UI updates happen on main thread
+            Clock.schedule_once(lambda dt: self._on_capture_completed(Path(filepath)), 0)
             if platform == "android" and MediaScannerConnection:
                 ctx = PythonActivity.mActivity
                 MediaScannerConnection.scanFile(ctx, [filepath], None, None)
-            self._on_capture_completed(Path(filepath))
 
         camera.bind(on_picture_taken=on_picture)
 
@@ -420,9 +430,9 @@ class CameraScanScreen(MDScreen, Alignment):
             # Navigate to success screen
             manager.current = "photo_success"
             
-            # Tell success screen to show success and return to home
+            # Tell success screen to show success and return to source screen
             success_screen = manager.get_screen("photo_success")
-            success_screen.show_success(filepath, "home")
+            success_screen.show_success(filepath, self.source_screen)
             
             # Restore previous transition direction
             if tr and prev_dir:
