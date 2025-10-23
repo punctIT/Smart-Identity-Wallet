@@ -5,37 +5,37 @@ from kivy.metrics import dp
 from kivy.uix.anchorlayout import AnchorLayout
 from kivy.uix.widget import Widget
 from kivy.utils import get_color_from_hex
+from kivy.clock import Clock
+from kivy.graphics import Color, Rectangle
+from kivy.uix.image import Image
+from kivy.animation import Animation
+from kivy.uix.relativelayout import RelativeLayout
+from pathlib import Path
 
 from kivymd.uix.boxlayout import MDBoxLayout
-from kivymd.uix.button import MDFlatButton, MDFloatingActionButton
+from kivymd.uix.button import MDFlatButton, MDFloatingActionButton, MDIconButton
 from kivymd.uix.card import MDCard
 from kivymd.uix.carousel import MDCarousel
 from kivymd.uix.gridlayout import MDGridLayout
 from kivymd.uix.label import MDLabel
 from kivymd.uix.screen import MDScreen
 from kivymd.uix.scrollview import MDScrollView
-from kivymd.uix.card import MDCard
-from kivymd.uix.label import MDLabel
-from kivymd.uix.button import MDIconButton
-from kivymd.uix.boxlayout import MDBoxLayout
-from pathlib import Path
-from kivy.uix.image import Image  
 
+# Fixed imports for older KivyMD version
+try:
+    from kivymd.uix.list import MDList, OneLineIconListItem
+except ImportError:
+    from kivymd.uix.list import MDList, OneLineListItem as OneLineIconListItem
 
+# Your existing imports
+from frontend.screens.widgets.custom_alignment import Alignment
+from frontend.screens.widgets.custom_cards import CategoryCard, NewsCard
+
+# Keep all your existing constants
 ASSETS_DIR = Path(__file__).parent.parent / "assets"
 LOGO_PATH = ASSETS_DIR / "logo.png"
 
-from kivymd.uix.scrollview import MDScrollView
-from kivy.metrics import dp
-from kivy.clock import Clock
-from kivy.graphics import Color, Rectangle
-
-
-from frontend.screens.widgets.custom_alignment import Alignment
-from frontend.screens.widgets.custom_cards import CategoryCard,NewsCard
-# ------------------------ THEME ------------------------
 BG_BOTTOM = (0.12, 0.03, 0.03, 1) 
-
 TEXT_PRIMARY = (0.92, 0.95, 1.00, 1)
 TEXT_SECONDARY = (0.70, 0.76, 0.86, 1)
 ACCENT = (0.25, 0.60, 1.00, 1)
@@ -54,38 +54,58 @@ CATEGORY_TILE_CONFIG = [
         "screen_name": "personal_docs",
         "title": "Personal Docs",
         "subtitle": "Carte de identitate, Permis auto, etc.",
+        "icon": "card-account-details-outline"
     },
     {
-        "screen_name": "vehicul_docs",
+        "screen_name": "vehicul_docs", 
         "title": "Vehicul",
         "subtitle": "Asigurări, ITP, Talon auto.",
+        "icon": "car"
     },
     {
         "screen_name": "transport_docs",
-        "title": "Transport",
+        "title": "Transport", 
         "subtitle": "Abonamente și bilete.",
+        "icon": "bus"
     },
     {
         "screen_name": "diverse_docs",
         "title": "Diverse",
         "subtitle": "Alte documente digitale.",
+        "icon": "folder-multiple-outline"
     },
     {
         "screen_name": "diverse_docs",
         "title": "Programari",
         "subtitle": "Programari la ghiseu.",
+        "icon": "calendar-clock"
     },
     {
-        "screen_name": "diverse_docs",
+        "screen_name": "diverse_docs", 
         "title": "Cere documente",
         "subtitle": "Creaza o cerere pentru copie a unui document",
+        "icon": "file-document-plus-outline"
     },
 ]
 
 CATEGORY_SCREEN_NAMES = [item["screen_name"] for item in CATEGORY_TILE_CONFIG]
 
+# Menu items pentru drawer
+DRAWER_MENU_ITEMS = [
+    {"text": "Acasă", "icon": "home", "screen": "home"},
+    {"divider": True},
+    {"text": "Personal Docs", "icon": "card-account-details-outline", "screen": "personal_docs"},
+    {"text": "Vehicul", "icon": "car", "screen": "vehicul_docs"},
+    {"text": "Transport", "icon": "bus", "screen": "transport_docs"},
+    {"text": "Diverse", "icon": "folder-multiple-outline", "screen": "diverse_docs"},
+    {"divider": True},
+    {"text": "Scanează Document", "icon": "camera-outline", "screen": "camera_scan"},
+    {"text": "Chat Asistent", "icon": "chat-outline", "screen": "chat"},
+    {"divider": True},
+    {"text": "Setări", "icon": "cog-outline", "screen": "settings"},
+]
 
-
+# Keep your existing carousel class
 class HomeNewsCarousel(MDCarousel):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -119,77 +139,373 @@ class HomeNewsCarousel(MDCarousel):
         self._lock_scroll = False
         return super().on_touch_up(touch)
 
-from frontend.screens.widgets.custom_background import GradientBackground
+# Custom divider widget since MDDivider doesn't exist in your version
+class SimpleDivider(Widget):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.size_hint_y = None
+        self.height = dp(1)
+        with self.canvas:
+            Color(0.3, 0.3, 0.3, 0.5)
+            self.rect = Rectangle(size=self.size, pos=self.pos)
+        self.bind(size=self._update_rect, pos=self._update_rect)
+    
+    def _update_rect(self, *args):
+        self.rect.size = self.size
+        self.rect.pos = self.pos
+
+# Custom list item that works with older KivyMD
+class MenuListItem(MDBoxLayout):
+    def __init__(self, text, icon, on_release_callback, **kwargs):
+        super().__init__(**kwargs)
+        self.orientation = "horizontal"
+        self.size_hint_y = None
+        self.height = dp(48)
+        self.padding = [dp(16), dp(8)]
+        self.spacing = dp(16)
+        
+        # Make it clickable
+        self.on_release_callback = on_release_callback
+        
+        # Add icon
+        icon_widget = MDIconButton(
+            icon=icon,
+            theme_icon_color="Custom",
+            icon_color=TEXT_SECONDARY,
+            size_hint=(None, None),
+            size=(dp(24), dp(24)),
+            pos_hint={"center_y": 0.5}
+        )
+        self.add_widget(icon_widget)
+        
+        # Add text
+        text_widget = MDLabel(
+            text=text,
+            theme_text_color="Custom",
+            text_color=TEXT_PRIMARY,
+            pos_hint={"center_y": 0.5}
+        )
+        text_widget.bind(width=lambda x, y: setattr(x, 'text_size', (y, None)))
+        self.add_widget(text_widget)
+        
+    def on_touch_down(self, touch):
+        if self.collide_point(*touch.pos):
+            if self.on_release_callback:
+                self.on_release_callback()
+            return True
+        return super().on_touch_down(touch)
+
+class CustomDrawer(MDBoxLayout):
+    def __init__(self, home_screen, **kwargs):
+        super().__init__(**kwargs)
+        self.home_screen = home_screen
+        self.orientation = "vertical"
+        self.md_bg_color = (0.08, 0.08, 0.10, 1)
+        self.size_hint = (None, 1)
+        self.width = dp(280)
+        self.pos_hint = {"x": -1}  # Hidden initially
+        
+        # Add drawer content
+        self._build_drawer_content()
+        
+    def _build_drawer_content(self):
+        """Build the drawer content"""
+        # Header
+        header = self._build_header()
+        self.add_widget(header)
+        
+        # Menu list
+        scroll = MDScrollView()
+        menu_container = MDBoxLayout(
+            orientation="vertical",
+            size_hint_y=None,
+            adaptive_height=True,
+            spacing=dp(4)
+        )
+        
+        for item in DRAWER_MENU_ITEMS:
+            if item.get("divider"):
+                menu_container.add_widget(SimpleDivider())
+            else:
+                list_item = MenuListItem(
+                    text=item["text"],
+                    icon=item["icon"],
+                    on_release_callback=lambda screen=item["screen"]: self._navigate_to(screen)
+                )
+                menu_container.add_widget(list_item)
+        
+        scroll.add_widget(menu_container)
+        self.add_widget(scroll)
+    
+    def _build_header(self):
+        """Build drawer header"""
+        header = MDBoxLayout(
+            orientation="vertical",
+            size_hint_y=None,
+            height=dp(150),
+            padding=dp(16),
+            spacing=dp(8)
+        )
+        
+        # Background color for header
+        with header.canvas.before:
+            Color(0.1, 0.1, 0.12, 1)
+            header.bg_rect = Rectangle(size=header.size, pos=header.pos)
+        header.bind(size=lambda x, y: setattr(header.bg_rect, 'size', y))
+        header.bind(pos=lambda x, y: setattr(header.bg_rect, 'pos', y))
+        
+        # Logo și titlu
+        logo_row = MDBoxLayout(
+            orientation="horizontal",
+            size_hint_y=None,
+            height=dp(48),
+            spacing=dp(12)
+        )
+        
+        logo = Image(
+            source=str(LOGO_PATH),
+            size_hint=(None, None),
+            size=(dp(40), dp(40)),
+            pos_hint={'center_y': 0.5}
+        )
+        logo_row.add_widget(logo)
+        
+        title_box = MDBoxLayout(orientation="vertical")
+        
+        title = MDLabel(
+            text="Smart ID Wallet",
+            font_style="H6",
+            theme_text_color="Custom",
+            text_color=TEXT_PRIMARY,
+            halign="left",
+            adaptive_height=True,
+            bold=True
+        )
+        title.bind(width=lambda x, y: setattr(x, 'text_size', (y, None)))
+        
+        subtitle = MDLabel(
+            text="Portofel digital",
+            font_style="Caption",
+            theme_text_color="Custom", 
+            text_color=TEXT_SECONDARY,
+            halign="left",
+            adaptive_height=True
+        )
+        subtitle.bind(width=lambda x, y: setattr(x, 'text_size', (y, None)))
+        
+        title_box.add_widget(title)
+        title_box.add_widget(subtitle)
+        logo_row.add_widget(title_box)
+        
+        header.add_widget(logo_row)
+        return header
+    
+    def _navigate_to(self, screen_name):
+        """Navigate to screen and close drawer"""
+        self.home_screen._close_drawer()
+        Clock.schedule_once(lambda dt: self.home_screen._go_to_screen(screen_name), 0.3)
+    
+    def open_drawer(self):
+        """Animate drawer open"""
+        anim = Animation(pos_hint={"x": 0}, duration=0.3, t="out_cubic")
+        anim.start(self)
+        
+    def close_drawer(self):
+        """Animate drawer close"""
+        anim = Animation(pos_hint={"x": -1}, duration=0.3, t="out_cubic")
+        anim.start(self)
 
 class HomeScreen(MDScreen, Alignment):
     def __init__(self, sm=None, server=None, **kwargs):
         super().__init__(name="home", **kwargs)
-        with self.canvas.before:
-            Color(0.13, 0.14, 0.16, 1)
-            self.bg_rect = Rectangle(size=Window.size, pos=(0, 0))
-        self.bind(size=self._update_bg, pos=self._update_bg)
-        Window.bind(size=self._update_window_bg)
         
+        # Initialize ALL attributes first
         self.server = server
         self.sm = sm if hasattr(sm, "has_screen") else None
         self._back_binding = False
         self.news_carousel = None
         self.dot_container = None
         self._news_cards = []
-
-        main_container = AnchorLayout()
+        self.drawer = None
+        self.overlay = None
+        self.is_drawer_open = False
         
-        # Layout-ul principal cu conținutul
-        root = MDBoxLayout(
-            orientation="vertical",
-            spacing=dp(16),
-            padding=[
-                dp(16),
-                self._safe_top_padding(16),
-                dp(16),
-                self._safe_bottom_padding(16),
-            ],
-        )
+        # Background setup
+        with self.canvas.before:
+            Color(0.13, 0.14, 0.16, 1)
+            self.bg_rect = Rectangle(size=Window.size, pos=(0, 0))
+        self.bind(size=self._update_bg, pos=self._update_bg)
+        Window.bind(size=self._update_window_bg)
 
-        root.add_widget(self._build_header())
-        root.add_widget(self._build_news_section())
-        root.add_widget(self._build_scroll_area())
+        # Create main layout with drawer
+        self._build_screen_with_drawer()
 
-        # Adaugă layout-ul principal la container
-        main_container.add_widget(root)
-        
-        # Adaugă butonul floating chat deasupra tuturor
-        floating_chat = self._build_floating_chat_button()
-        main_container.add_widget(floating_chat)
-        
-        # Adaugă containerul principal la screen
-        self.add_widget(main_container)
-
+        # Setup news carousel
         if self.news_carousel:
             self.news_carousel.bind(index=self._refresh_dots)
 
         Window.bind(size=self._update_news_card_widths)
         self._populate_news([])
         self._update_news_card_widths()
-   
-    def _update_bg(self, *args):
-        """Actualizează background-ul când se schimbă dimensiunea screen-ului"""
-        if hasattr(self, 'bg_rect'):
-            self.bg_rect.size = self.size
-            self.bg_rect.pos = self.pos
 
-    def _update_window_bg(self, instance, size):
-        """Actualizează background-ul când se schimbă dimensiunea ferestrei"""
-        if hasattr(self, 'bg_rect'):
-            self.bg_rect.size = size
-            self.bg_rect.pos = (0, 0)
+    def _build_screen_with_drawer(self):
+        """Build screen with drawer functionality"""
+        # Main relative layout
+        root = RelativeLayout()
+        
+        # Main content
+        main_content = self._build_main_content()
+        root.add_widget(main_content)
+        
+        # Overlay pentru drawer - FIX: Simplificat complet
+        self.overlay = Widget(
+            size_hint=(1, 1),
+            opacity=0  # Folosim opacity în loc de canvas
+        )
+        # Culoare de fundal permanentă
+        with self.overlay.canvas.before:
+            Color(0, 0, 0, 1)
+            self.overlay_rect = Rectangle(size=self.overlay.size, pos=self.overlay.pos)
+        
+        self.overlay.bind(size=self._update_overlay_rect, pos=self._update_overlay_rect)
+        self.overlay.bind(on_touch_down=self._on_overlay_touch)
+        root.add_widget(self.overlay)
+        
+        # Custom drawer
+        self.drawer = CustomDrawer(self)
+        root.add_widget(self.drawer)
+        
+        # Floating chat button
+        floating_chat = self._build_floating_chat_button()
+        root.add_widget(floating_chat)
+        
+        self.add_widget(root)
+    def _update_overlay_rect(self, *args):
+        """Update overlay rectangle"""
+        if hasattr(self, 'overlay_rect'):
+            self.overlay_rect.size = self.overlay.size
+            self.overlay_rect.pos = self.overlay.pos
+            
+    def _build_main_content(self):
+        """Build main content with header"""
+        main_container = MDBoxLayout(orientation="vertical")
+        
+        # Header with menu button
+        header = self._build_header_with_menu()
+        main_container.add_widget(header)
+        
+        # Content
+        content = self._build_content()
+        main_container.add_widget(content)
+        
+        return main_container
+
+    def _build_header_with_menu(self):
+        """Header with menu button"""
+        header = MDBoxLayout(
+            orientation="horizontal",
+            size_hint_y=None,
+            height=dp(56),
+            padding=[dp(16), dp(8), dp(16), dp(8)],
+            spacing=dp(16)
+        )
+        
+        # Menu button
+        menu_btn = MDIconButton(
+            icon="menu",
+            theme_icon_color="Custom",
+            icon_color=TEXT_PRIMARY,
+            on_release=self._toggle_drawer
+        )
+        header.add_widget(menu_btn)
+        
+        # Title section
+        title_box = MDBoxLayout(
+            orientation="horizontal", 
+            spacing=dp(12)
+        )
+        
+        # Logo
+        logo = Image(
+            source=str(LOGO_PATH),
+            size_hint=(None, None),
+            size=(dp(32), dp(32)),
+            pos_hint={'center_y': 0.5}
+        )
+        title_box.add_widget(logo)
+        
+        # Title text
+        title = MDLabel(
+            text="Smart ID Wallet",
+            font_style="H6",
+            theme_text_color="Custom",
+            text_color=TEXT_PRIMARY,
+            halign="left",
+            adaptive_height=True,
+            bold=True,
+        )
+        title.bind(width=self._sync_text_width)
+        title_box.add_widget(title)
+        
+        header.add_widget(title_box)
+        return header
+
+    def _build_content(self):
+        """Build main content"""
+        root = MDBoxLayout(
+            orientation="vertical",
+            spacing=dp(16),
+            padding=[
+                dp(16),
+                dp(8),
+                dp(16),
+                self._safe_bottom_padding(16),
+            ],
+        )
+
+        root.add_widget(self._build_news_section())
+        root.add_widget(self._build_scroll_area())
+        return root
+
+    def _toggle_drawer(self, *args):
+        """Toggle drawer open/close"""
+        if self.is_drawer_open:
+            self._close_drawer()
+        else:
+            self._open_drawer()
+
+    def _open_drawer(self):
+        """Open drawer with animation"""
+        if self.drawer and not self.is_drawer_open:
+            self.drawer.open_drawer()
+            # FIX: Folosește animație pentru opacity
+            anim = Animation(opacity=0.5, duration=0.3)
+            anim.start(self.overlay)
+            self.is_drawer_open = True
+
+    def _close_drawer(self):
+        """Close drawer with animation"""
+        if self.drawer and self.is_drawer_open:
+            self.drawer.close_drawer()
+            # FIX: Animație pentru a face overlay-ul transparent
+            anim = Animation(opacity=0, duration=0.3)
+            anim.start(self.overlay)
+            self.is_drawer_open = False
+
+    def _on_overlay_touch(self, instance, touch):
+        """Close drawer when touching overlay"""
+        if self.is_drawer_open and self.overlay.opacity > 0:
+            self._close_drawer()
+            return True
+        return False
+
+    # Keep ALL your existing methods exactly as they are
     def _build_floating_chat_button(self):
-        """Creează butonul floating pentru chat care plutește deasupra tuturor elementelor"""
         floating_container = AnchorLayout(
             anchor_x="right",
             anchor_y="bottom",
             size_hint=(1, 1),
-            padding=(0, 0, dp(24), dp(40))  # right, top, left, bottom
+            padding=(0, 0, dp(24), dp(40))
         )
         
         chat_fab = MDFloatingActionButton(
@@ -203,68 +519,6 @@ class HomeScreen(MDScreen, Alignment):
         
         floating_container.add_widget(chat_fab)
         return floating_container
-    def _build_header(self):
-    # Container principal cu padding sus
-        main_container = MDBoxLayout(
-            orientation="vertical", 
-            spacing=dp(4), 
-            adaptive_height=True,
-            padding=[0, dp(20), 0, 0]
-        )
-        
-        # Container orizontal pentru logo + text
-        header_row = MDBoxLayout(
-            orientation="horizontal",
-            spacing=dp(12),
-            adaptive_height=True,
-            size_hint_y=None
-        )
-        
-        # Logo/imagine - folosește aceeași abordare ca în SplashScreen
-        logo = Image(
-            source=str(LOGO_PATH),  # Folosește calea absolută ca în SplashScreen
-            size_hint=(None, None),
-            size=(dp(48), dp(48)),
-            pos_hint={'center_y': 0.5}
-        )
-        
-        # Restul codului rămâne la fel...
-        text_container = MDBoxLayout(
-            orientation="vertical",
-            spacing=dp(2),
-            adaptive_height=True
-        )
-        
-        title = MDLabel(
-            text="Smart ID Wallet",
-            font_style="H4",
-            theme_text_color="Custom",
-            text_color=TEXT_PRIMARY,
-            halign="left",
-            adaptive_height=True,
-            bold=True,
-        )
-        title.bind(width=self._sync_text_width)
-
-        subtitle = MDLabel(
-            text="Portofel digital pentru documentele tale esențiale.",
-            font_style="Body1",
-            theme_text_color="Custom",
-            text_color=TEXT_SECONDARY,
-            halign="left",
-            adaptive_height=True,
-        )
-        subtitle.bind(width=self._sync_text_width)
-        
-        text_container.add_widget(title)
-        text_container.add_widget(subtitle)
-        
-        header_row.add_widget(logo)
-        header_row.add_widget(text_container)
-        
-        main_container.add_widget(header_row)
-        
-        return main_container
 
     def _build_news_section(self):
         section = MDBoxLayout(orientation="vertical", spacing=dp(6), size_hint_y=None, adaptive_height=True)
@@ -307,53 +561,21 @@ class HomeScreen(MDScreen, Alignment):
         content.add_widget(Widget(size_hint_y=None, height=dp(48)))
         return scroll
 
-    def _build_bottom_bar(self):
-        bar = MDBoxLayout(
-            orientation="horizontal",
-            size_hint_y=None,
-            height=dp(76),
-            padding=(dp(12), dp(12)),
-            spacing=dp(12),
-        )
+    # All your existing methods remain the same
+    def _update_bg(self, *args):
+        if hasattr(self, 'bg_rect'):
+            self.bg_rect.size = self.size
+            self.bg_rect.pos = self.pos
 
-        fab_column = MDBoxLayout(
-            orientation="vertical",
-            size_hint=(None, None),
-            width=dp(80),
-            adaptive_height=True,
-            spacing=dp(6),
-        )
-
-        fab = MDFloatingActionButton(
-            icon="camera",
-            md_bg_color=ACCENT_YELLOW,
-            text_color=(0, 0, 0, 1),
-            elevation=12,
-        )
-        fab.bind(on_release=lambda *_: self._go_to_screen("camera_scan"))
-
-        fab_label = MDLabel(
-            text="Scanează",
-            font_style="Caption",
-            theme_text_color="Custom",
-            text_color=TEXT_SECONDARY,
-            halign="center",
-            adaptive_height=True,
-        )
-
-        fab_column.add_widget(fab)
-        fab_column.add_widget(fab_label)
-        bar.add_widget(fab_column)
-
-        return bar
+    def _update_window_bg(self, instance, size):
+        if hasattr(self, 'bg_rect'):
+            self.bg_rect.size = size
+            self.bg_rect.pos = (0, 0)
 
     @staticmethod
     def _sync_text_width(label, value):
         label.text_size = (value, None)
 
-    # ------------------------------------------------------------------
-    # News feed helpers
-    # ------------------------------------------------------------------
     def _populate_news(self, items):
         if not self.news_carousel:
             return
@@ -418,9 +640,6 @@ class HomeScreen(MDScreen, Alignment):
         for card in self._news_cards:
             card.update_width(width)
 
-    # ------------------------------------------------------------------
-    # Navigation & lifecycle
-    # ------------------------------------------------------------------
     def on_pre_enter(self, *_):
         if not self._back_binding:
             Window.bind(on_keyboard=self._handle_back_gesture)
@@ -433,7 +652,12 @@ class HomeScreen(MDScreen, Alignment):
             self._back_binding = False
 
     def _handle_back_gesture(self, window, key, scancode, codepoint, modifiers):
-        if key in (27, 1001):
+        # If drawer is open, close it first
+        if key in (27, 1001) and self.is_drawer_open:
+            self._close_drawer()
+            return True
+        # Otherwise exit app
+        elif key in (27, 1001):
             app = App.get_running_app()
             if app:
                 app.stop()
@@ -448,8 +672,14 @@ class HomeScreen(MDScreen, Alignment):
         self.sm.transition = old_transition 
 
     def _go_to_screen(self, name):
+        # Close drawer if open
+        if self.is_drawer_open:
+            self._close_drawer()
+            
         if not self.sm or not self.sm.has_screen(name):
+            Logger.warning(f"HomeScreen: Screen '{name}' not found")
             return
+            
         direction_map = {
             "camera_scan": "up",
             "chat": "left",
@@ -467,7 +697,7 @@ class HomeScreen(MDScreen, Alignment):
             return
         try:
             data = self.server.get_specific_data("News")
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             Logger.warning(f"HomeScreen: failed to fetch news ({exc})")
             return
 
@@ -479,6 +709,5 @@ class HomeScreen(MDScreen, Alignment):
 
     def set_server(self, server):
         self.server = server
-
 
 __all__ = ["CATEGORY_TILE_CONFIG", "CATEGORY_SCREEN_NAMES", "HomeScreen"]
