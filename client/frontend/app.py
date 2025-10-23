@@ -19,8 +19,13 @@ from frontend.screens.server_setup_screen import ServerSetupScreen
 from frontend.screens.chat_screens.chat_screen import ChatScreen
 
 
+
+
 if platform == "android":
     from android.permissions import request_permissions, Permission
+
+
+
 
 class SwipeScreenManager(ScreenManager):
     def __init__(self, **kwargs):
