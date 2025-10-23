@@ -16,7 +16,8 @@ from kivymd.uix.boxlayout import MDBoxLayout
 from kivymd.uix.button import MDIconButton
 from kivymd.uix.label import MDLabel
 from kivymd.uix.screen import MDScreen
-from kivymd.uix.dialog import MDDialog
+from kivy.uix.popup import Popup
+from kivy.uix.boxlayout import BoxLayout
 
 from kivy_garden.xcamera.xcamera import XCamera
 
@@ -60,11 +61,9 @@ class CameraScanScreen(MDScreen, Alignment):
         self._capture_in_progress = False
 
         # Popup/progress flow
-        # MODIFICARE: Păstrăm MDDialog, dar nu mai folosim _processing_dialog_open
-        # Ne bazăm pe obiectul dialogului pentru a gestiona starea deschis/închis.
-        self._processing_dialog: Optional[MDDialog] = None
+        # Using simple Kivy Popup instead of MDDialog for better mobile compatibility
+        self._processing_popup: Optional[Popup] = None
         self._processing_event = None
-        self._fallback_label: Optional[MDLabel] = None
 
         self._build_ui()
 
@@ -415,35 +414,43 @@ class CameraScanScreen(MDScreen, Alignment):
     def _show_processing_dialog(self, title: str = "Procesare",
                                 text: str = "Se procesează...", seconds: float | None = None) -> None:
         """
-        Creează/deschide popup-ul tranzitoriu. 
-        MODIFICARE: Logică simplificată pentru a preveni erorile de stări deschise.
+        Creează/deschide popup-ul cu Kivy Popup pentru mai bună compatibilitate mobile.
         """
-        # Închide și șterge dialogul existent pentru a evita probleme de stare
-        if self._processing_dialog:
-            try:
-                self._processing_dialog.dismiss()
-            except:
-                pass
-            self._processing_dialog = None
+        # Închide popup-ul existent dacă există
+        if self._processing_popup:
+            self._processing_popup.dismiss()
+            self._processing_popup = None
         
-        # Creează un dialog nou de fiecare dată
-        self._processing_dialog = MDDialog(
-            title=title,
+        # Creează conținutul popup-ului
+        content = BoxLayout(orientation='vertical', spacing=dp(20), padding=dp(20))
+        
+        # Adaugă textul
+        text_label = Label(
             text=text,
+            font_size=dp(16),
+            color=(1, 1, 1, 1),
+            text_size=(dp(250), None),
+            halign='center',
+            valign='middle'
+        )
+        content.add_widget(text_label)
+        
+        # Creează popup-ul
+        self._processing_popup = Popup(
+            title=title,
+            content=content,
+            size_hint=(0.8, 0.6),
             auto_dismiss=False,
-            size_hint=(0.8, None),
-            height=dp(200)
+            title_size=dp(18)
         )
 
-        # Deschide dialogul
+        # Deschide popup-ul
         try:
-            self._processing_dialog.open()
+            self._processing_popup.open()
+            Logger.info(f"CameraScanScreen: Popup opened successfully: {title}")
         except Exception as e:
-            Logger.error(f"CameraScanScreen: Failed to open dialog: {e}")
-            # Fallback - folosește print pentru debugging pe APK
-            print(f"[Camera] Dialog error: {e}, showing message: {title} - {text}", flush=True)
-            # Fallback - arată un label temporar peste UI
-            self._show_fallback_notification(f"{title}: {text}")
+            Logger.error(f"CameraScanScreen: Failed to open popup: {e}")
+            print(f"[Camera] Popup error: {e}, showing message: {title} - {text}", flush=True)
 
 
     def _finish_processing(self, *_):
@@ -460,42 +467,17 @@ class CameraScanScreen(MDScreen, Alignment):
         self._dismiss_processing_dialog()
         self._go_back()
 
-    def _show_fallback_notification(self, message: str) -> None:
-        """Arată un label temporar ca fallback dacă MDDialog nu funcționează."""
-        if self._fallback_label:
-            if self._fallback_label.parent:
-                self._fallback_label.parent.remove_widget(self._fallback_label)
-        
-        self._fallback_label = MDLabel(
-            text=message,
-            theme_text_color="Custom",
-            text_color=(1, 1, 1, 1),
-            pos_hint={"center_x": 0.5, "center_y": 0.5},
-            size_hint=(0.8, None),
-            height=dp(100),
-            halign="center",
-            markup=True
-        )
-        
-        if self.camera_holder:
-            self.camera_holder.add_widget(self._fallback_label)
-
     def _dismiss_processing_dialog(self) -> None:
         """
-        Închide dialogul dacă este deschis.
+        Închide popup-ul dacă este deschis.
         """
-        if self._processing_dialog:
+        if self._processing_popup:
             try:
-                self._processing_dialog.dismiss()
+                self._processing_popup.dismiss()
             except Exception as e:
-                Logger.warning(f"CameraScanScreen: Failed to dismiss dialog: {e}")
+                Logger.warning(f"CameraScanScreen: Failed to dismiss popup: {e}")
             finally:
-                self._processing_dialog = None
-        
-        # Șterge și fallback label-ul dacă există
-        if self._fallback_label and self._fallback_label.parent:
-            self._fallback_label.parent.remove_widget(self._fallback_label)
-            self._fallback_label = None
+                self._processing_popup = None
 
     def _cancel_processing_flow(self) -> None:
         """Anulează evenimentele temporizate și închide dialogul."""
