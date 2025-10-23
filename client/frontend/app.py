@@ -19,9 +19,10 @@ from frontend.screens.server_setup_screen import ServerSetupScreen
 from frontend.screens.chat_screens.chat_screen import ChatScreen
 from frontend.screens.cards_screen.idenity_card import IDScreen
 from frontend.screens.settings.settings import SettingsScreen
+from frontend.screens.settings.account_info_screen import AccountInfoScreen
+from frontend.screens.settings.security_screen import SecurityScreen
 from frontend.screens.photo_success_screen import PhotoSuccessScreen
 from frontend.screens.processing_screen import ProcessingScreen
-
 
 
 if platform == "android":
@@ -36,23 +37,6 @@ class SwipeScreenManager(ScreenManager):
         self.transition = SlideTransition(direction='up', duration=0.2)
         self.touch_start_pos = None
         self.min_swipe_distance = 100
-        self.previous_screen_name = None  # Track previous screen
-    
-    @property
-    def current(self):
-        return super().current
-    
-    @current.setter 
-    def current(self, value):
-        # Store previous screen name before changing
-        if hasattr(self, '_current') and self._current != value:
-            self.previous_screen_name = self._current
-            # If navigating to camera, set source screen
-            if value == "camera_scan" and self.has_screen("camera_scan"):
-                camera_screen = self.get_screen("camera_scan")
-                if hasattr(camera_screen, 'set_source_screen') and self.previous_screen_name:
-                    camera_screen.set_source_screen(self.previous_screen_name)
-        super(SwipeScreenManager, self.__class__).current.__set__(self, value)
         
     def on_touch_down(self, touch):
         self.touch_start_pos = touch.pos
@@ -74,21 +58,37 @@ class SwipeScreenManager(ScreenManager):
                         return True
             if abs(swipe_vector.x) > self.min_swipe_distance and abs(swipe_vector.x) > abs(swipe_vector.y):
                 if swipe_vector.x > 0:  
-                    for screen in ["personal_docs","transport_docs","vehicul_docs",'diverse_docs','camera_scan','chat']:
+                    for screen in ["personal_docs","transport_docs","vehicul_docs",'diverse_docs','camera_scan','chat','settings']:
                         if self.current == screen:
                             self.transition.direction = 'right'
                             self.current = 'home'
                             return True
+                    if self.current == 'account_info':
+                        self.transition.direction = 'right'
+                        self.current = 'settings'
+                        return True
+                    if self.current == 'security':
+                        self.transition.direction = 'right'
+                        self.current = 'settings'
+                        return True
                     if self.current=='identity_card':
                         self.transition.direction = 'right'
                         self.current = 'personal_docs'
                         return True
                 else:
-                    for screen in ["personal_docs","transport_docs","vehicul_docs",'diverse_docs','camera_scan','chat']:
+                    for screen in ["personal_docs","transport_docs","vehicul_docs",'diverse_docs','camera_scan','chat','settings']:
                         if self.current == screen:
                             self.transition.direction = 'left'
                             self.current = 'home'
                             return True
+                    if self.current == 'account_info':
+                        self.transition.direction = 'left'
+                        self.current = 'settings'
+                        return True
+                    if self.current == 'security':
+                        self.transition.direction = 'left'
+                        self.current = 'settings'
+                        return True
                     if self.current=='identity_card':
                         self.transition.direction = 'left'
                         self.current = 'personal_docs'
@@ -120,6 +120,8 @@ class SmartIdApp(MDApp):
         sm.add_widget(ChatScreen(self.server))
         sm.add_widget(IDScreen(self.server))
         sm.add_widget(SettingsScreen(self.server))
+        sm.add_widget(AccountInfoScreen(self.server))
+        sm.add_widget(SecurityScreen(self.server))
         sm.current = 'server_setup'
         
         Window.bind(on_key_down=self._on_key_down)
