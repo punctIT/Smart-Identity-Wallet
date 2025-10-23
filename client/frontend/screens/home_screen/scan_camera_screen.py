@@ -16,6 +16,7 @@ from kivymd.uix.boxlayout import MDBoxLayout
 from kivymd.uix.button import MDIconButton
 from kivymd.uix.label import MDLabel
 from kivymd.uix.screen import MDScreen
+
 from kivy_garden.xcamera.xcamera import XCamera
 
 from frontend.screens.widgets.custom_alignment import Alignment
@@ -56,14 +57,10 @@ class CameraScanScreen(MDScreen, Alignment):
         self._rotation = None
         self.capture_button: Optional[MDIconButton] = None
         self._capture_in_progress = False
-        self.source_screen: str = "home"  # Track which screen opened the camera
+        self._photo_taken = False  # Track if photo has been taken
 
+        # Remove popup/dialog related attributes since we're using processing screen now
         self._build_ui()
-
-    def set_source_screen(self, screen_name: str) -> None:
-        """Set which screen opened the camera to return to it later."""
-        self.source_screen = screen_name
-        Logger.info(f"CameraScanScreen: Source screen set to {screen_name}")
 
     # ------------------------------------------------------------------
     # UI
@@ -117,12 +114,8 @@ class CameraScanScreen(MDScreen, Alignment):
     # ------------------------------------------------------------------
     def on_pre_enter(self, *_):
         super().on_pre_enter()
-        # Store which screen we came from if not already set
-        if hasattr(self, 'manager') and self.manager:
-            prev_screen = getattr(self.manager, 'previous_screen_name', None)
-            if prev_screen and prev_screen != "camera_scan":
-                self.source_screen = prev_screen
-        
+        # Reset photo taken flag when entering the screen
+        self._photo_taken = False
         self._ensure_camera_ready()
         # Bind app lifecycle events pentru Android
         if platform == "android":
@@ -264,7 +257,7 @@ class CameraScanScreen(MDScreen, Alignment):
 
         camera.bind(pos=_update_origin, size=_update_origin)
 
-        # Când o poză este făcută, rescanare, afișare popup și navigare înapoi
+        # Când o poză este făcută, navighează la ecranul de procesare
         def on_picture(_, filepath):
             Logger.info(f"CameraScanScreen: Saved photo -> {filepath}")
             print(f"[Camera] photo saved -> {filepath}", flush=True)
@@ -397,29 +390,30 @@ class CameraScanScreen(MDScreen, Alignment):
             xcamera_module.take_picture = android_api.take_picture
 
     # ------------------------------------------------------------------
-    # Popup flow (SHOW → wait → CLOSE → back)
+    # Photo capture completion
     # ------------------------------------------------------------------
     def _on_capture_completed(self, filepath: Path) -> None:
-        """Called after XCamera fired on_picture_taken - navigate to success screen."""
-        Logger.info(f"CameraScanScreen: Photo captured, navigating to success screen")
+        """Called after XCamera fired on_picture_taken - navigate to processing screen."""
+        Logger.info(f"CameraScanScreen: Photo captured, navigating to processing screen")
         
-        # Stop camera before navigating
+        # Mark photo as taken and disable further captures
+        self._photo_taken = True
+        self._capture_in_progress = False
+        
+        # Stop camera and disable capture button permanently
         if self.camera_view:
             self.camera_view.play = False
-            
-        # Reset capture state
-        self._capture_in_progress = False
         if self.capture_button:
-            self.capture_button.disabled = False
+            self.capture_button.disabled = True
             
-        # Navigate to success screen
+        # Navigate to processing screen
         manager = getattr(self, "manager", None)
         if manager:
-            # Ensure success screen exists
-            if not manager.has_screen("photo_success"):
-                from frontend.screens.photo_success_screen import PhotoSuccessScreen
-                success_screen = PhotoSuccessScreen()
-                manager.add_widget(success_screen)
+            # Ensure processing screen exists
+            if not manager.has_screen("processing"):
+                from frontend.screens.processing_screen import ProcessingScreen
+                processing_screen = ProcessingScreen()
+                manager.add_widget(processing_screen)
             
             # Set transition direction
             tr = getattr(manager, "transition", None)
@@ -427,20 +421,18 @@ class CameraScanScreen(MDScreen, Alignment):
             if tr:
                 tr.direction = "up"
             
-            # Navigate to success screen
-            manager.current = "photo_success"
+            # Navigate to processing screen
+            manager.current = "processing"
             
-            # Tell success screen to show success and return to source screen
-            success_screen = manager.get_screen("photo_success")
-            success_screen.show_success(filepath, self.source_screen)
+            # Tell processing screen to start processing
+            processing_screen = manager.get_screen("processing")
+            processing_screen.start_processing(filepath)
             
             # Restore previous transition direction
             if tr and prev_dir:
                 tr.direction = prev_dir
         else:
             Logger.warning("CameraScanScreen: No screen manager available")
-
-
 
     # ------------------------------------------------------------------
     # Error + navigation
@@ -497,10 +489,15 @@ class CameraScanScreen(MDScreen, Alignment):
     # Capture actions
     # ------------------------------------------------------------------
     def capture_photo(self) -> None:
-        """Trigger a capture and log to terminal."""
+        """Trigger a capture and log to terminal. Only allows one photo per session."""
+        if self._photo_taken:
+            Logger.info("CameraScanScreen: Photo already taken, capture disabled.")
+            return
+        
         if self._capture_in_progress:
             Logger.info("CameraScanScreen: Capture already in progress.")
             return
+            
         if not self.camera_view:
             Logger.warning("CameraScanScreen: Capture requested without an active camera.")
             self._show_camera_error("Camera indisponibilă.")
