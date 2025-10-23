@@ -8,6 +8,14 @@ from kivy.uix.scrollview import ScrollView
 from kivy.graphics import Color, RoundedRectangle
 from kivy.metrics import dp, sp
 
+def match_name(name)->str:
+    if name=='identity_card':
+        return "Carte de identitate"
+    if name=='driving_license':
+        return "Carnet de conducere"
+    else :
+        return name
+
 class CardPopup:
     def __init__(self, server, card_name):
         self.server = server
