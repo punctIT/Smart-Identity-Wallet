@@ -59,12 +59,9 @@ class CameraScanScreen(MDScreen, Alignment):
         self.capture_button: Optional[MDIconButton] = None
         self._capture_in_progress = False
 
-        # Popup/progress flow
-        # MODIFICARE: Păstrăm MDDialog, dar nu mai folosim _processing_dialog_open
-        # Ne bazăm pe obiectul dialogului pentru a gestiona starea deschis/închis.
-        self._processing_dialog: Optional[MDDialog] = None
-        self._processing_event = None
-        self._fallback_label: Optional[MDLabel] = None
+        # Simple overlay notification system (no MDDialog)
+        self._notification_overlay: Optional[MDBoxLayout] = None
+        self._notification_event = None
 
         self._build_ui()
 
@@ -179,6 +176,8 @@ class CameraScanScreen(MDScreen, Alignment):
         if self.camera_view:
             try:
                 self.camera_view.play = True
+                # Ensure buttons stay hidden after restart
+                Clock.schedule_once(lambda dt: self._remove_default_capture_button(), 0.1)
                 Logger.info("CameraScanScreen: Camera restarted after resume")
             except Exception as e:
                 Logger.error(f"CameraScanScreen: Failed to restart camera: {e}")
@@ -229,6 +228,9 @@ class CameraScanScreen(MDScreen, Alignment):
 
         capture_dir = self._build_capture_dir()
         camera_kwargs = {"play": False, "directory": str(capture_dir)}
+        
+        # Force disable XCamera controls from the start
+        camera_kwargs["show_controls"] = False
 
         if platform == "android":
             index = self._select_primary_camera_index()
@@ -278,8 +280,14 @@ class CameraScanScreen(MDScreen, Alignment):
 
         self.camera_view = camera
         self._ensure_android_capture_backend()
+        
+        # Aggressive button hiding - call before and after adding to layout
         self._remove_default_capture_button()
         self.camera_holder.add_widget(self.camera_view)
+        
+        # Schedule another button removal after widget is added
+        Clock.schedule_once(lambda dt: self._remove_default_capture_button(), 0.1)
+        Clock.schedule_once(lambda dt: self._remove_default_capture_button(), 0.5)
 
         if self._camera_error_label and self._camera_error_label.parent:
             self._camera_error_label.parent.remove_widget(self._camera_error_label)
@@ -397,53 +405,108 @@ class CameraScanScreen(MDScreen, Alignment):
             xcamera_module.take_picture = android_api.take_picture
 
     # ------------------------------------------------------------------
-    # Popup flow (SHOW → wait → CLOSE → back)
+    # Simple overlay notification system (replaces unreliable MDDialog)
     # ------------------------------------------------------------------
     def _on_capture_completed(self, filepath: Path) -> None:
         """Called after XCamera fired on_picture_taken."""
-        msg = f"Fotografie salvată:\n[b]{filepath.name}[/b]"
+        msg = f"Fotografie salvată:\n{filepath.name}"
         
-        self._show_processing_dialog(title="Succes", text=msg)
+        self._show_success_overlay(msg)
         
-        # Setează evenimentul de închidere după 2 secunde
-        if self._processing_event:
-            self._processing_event.cancel()
-        self._processing_event = Clock.schedule_once(self._finish_processing, 2.0)
-        
-        # Butonul este dezactivat la începutul capturii, va fi activat doar după navigare.
+        # Schedule auto-close and navigation after 2 seconds
+        if self._notification_event:
+            self._notification_event.cancel()
+        self._notification_event = Clock.schedule_once(self._finish_processing, 2.0)
 
-    def _show_processing_dialog(self, title: str = "Procesare",
-                                text: str = "Se procesează...", seconds: float | None = None) -> None:
-        """
-        Creează/deschide popup-ul tranzitoriu. 
-        MODIFICARE: Logică simplificată pentru a preveni erorile de stări deschise.
-        """
-        # Închide și șterge dialogul existent pentru a evita probleme de stare
-        if self._processing_dialog:
-            try:
-                self._processing_dialog.dismiss()
-            except:
-                pass
-            self._processing_dialog = None
+    def _show_success_overlay(self, message: str) -> None:
+        """Show a simple success overlay that works reliably on mobile."""
+        # Remove any existing overlay
+        self._remove_notification_overlay()
         
-        # Creează un dialog nou de fiecare dată
-        self._processing_dialog = MDDialog(
-            title=title,
-            text=text,
-            auto_dismiss=False,
-            size_hint=(0.8, None),
-            height=dp(200)
+        # Create success overlay
+        from kivymd.uix.card import MDCard
+        
+        overlay = MDBoxLayout(
+            orientation="vertical",
+            size_hint=(None, None),
+            width=dp(280),
+            height=dp(120),
+            pos_hint={"center_x": 0.5, "center_y": 0.5},
+            spacing=dp(10),
+            padding=dp(20)
         )
+        
+        # Background card
+        card = MDCard(
+            md_bg_color=(0.2, 0.7, 0.2, 0.95),  # Green with transparency
+            size_hint=(1, 1),
+            elevation=10,
+            radius=[15, 15, 15, 15]
+        )
+        
+        # Success icon
+        icon = MDLabel(
+            text="✓",
+            font_size=dp(32),
+            theme_text_color="Custom",
+            text_color=(1, 1, 1, 1),
+            halign="center",
+            size_hint_y=0.4
+        )
+        
+        # Message text
+        text_label = MDLabel(
+            text=message,
+            font_size=dp(14),
+            theme_text_color="Custom", 
+            text_color=(1, 1, 1, 1),
+            halign="center",
+            text_size=(dp(240), None),
+            size_hint_y=0.6
+        )
+        
+        overlay.add_widget(icon)
+        overlay.add_widget(text_label)
+        
+        # Add card background
+        card_container = MDBoxLayout(size_hint=(1, 1))
+        card_container.add_widget(card)
+        card_container.add_widget(overlay)
+        
+        self._notification_overlay = card_container
+        
+        # Add to the main screen (not camera_holder to ensure it's on top)
+        if self.children:
+            self.add_widget(self._notification_overlay)
+        
+        Logger.info(f"CameraScanScreen: Showing success overlay: {message}")
+        print(f"[Camera] Success overlay shown: {message}", flush=True)
 
-        # Deschide dialogul
-        try:
-            self._processing_dialog.open()
-        except Exception as e:
-            Logger.error(f"CameraScanScreen: Failed to open dialog: {e}")
-            # Fallback - folosește print pentru debugging pe APK
-            print(f"[Camera] Dialog error: {e}, showing message: {title} - {text}", flush=True)
-            # Fallback - arată un label temporar peste UI
-            self._show_fallback_notification(f"{title}: {text}")
+    def _remove_notification_overlay(self) -> None:
+        """Remove the notification overlay if it exists."""
+        if self._notification_overlay and self._notification_overlay.parent:
+            self._notification_overlay.parent.remove_widget(self._notification_overlay)
+        self._notification_overlay = None
+
+    def _finish_processing(self, *_):
+        """Remove overlay and navigate back."""
+        self._notification_event = None
+        
+        # Reset capture state
+        self._capture_in_progress = False 
+        if self.capture_button:
+            self.capture_button.disabled = False
+            
+        # Remove overlay and navigate
+        self._remove_notification_overlay()
+        self._go_back()
+
+    def _cancel_processing_flow(self) -> None:
+        """Cancel any scheduled events and remove overlay."""
+        if self._notification_event:
+            self._notification_event.cancel()
+            self._notification_event = None
+        self._remove_notification_overlay()
 
 
     def _finish_processing(self, *_):
@@ -531,15 +594,55 @@ class CameraScanScreen(MDScreen, Alignment):
         if not self.camera_view:
             return
         
-        # MODIFICARE: Dezactivarea implicită a controalelor.
-        # Aceasta este metoda standard de a ascunde butonul.
+        # Method 1: Disable show_controls property
         if hasattr(self.camera_view, 'show_controls'):
-             self.camera_view.show_controls = False
-             
-        # Logica de ștergere manuală (ca fallback)
-        shoot_button = getattr(self.camera_view, "ids", {}).get("shoot_button") if hasattr(self.camera_view, "ids") else None
-        if shoot_button and shoot_button.parent:
-            shoot_button.parent.remove_widget(shoot_button)
+            self.camera_view.show_controls = False
+        
+        # Method 2: Hide via XCamera property if available
+        if hasattr(self.camera_view, 'show_shoot_button'):
+            self.camera_view.show_shoot_button = False
+        
+        # Method 3: Manual removal from ids
+        if hasattr(self.camera_view, "ids") and self.camera_view.ids:
+            shoot_button = self.camera_view.ids.get("shoot_button")
+            if shoot_button and shoot_button.parent:
+                try:
+                    shoot_button.parent.remove_widget(shoot_button)
+                    Logger.info("CameraScanScreen: Removed shoot_button via ids")
+                except:
+                    pass
+        
+        # Method 4: Search and remove any buttons in camera widget tree
+        self._recursive_remove_buttons(self.camera_view)
+    
+    def _recursive_remove_buttons(self, widget):
+        """Recursively search and remove any buttons that might be capture buttons."""
+        if not widget:
+            return
+        
+        # Remove buttons that look like camera capture buttons
+        children_to_remove = []
+        for child in widget.children:
+            if hasattr(child, '__class__'):
+                class_name = child.__class__.__name__.lower()
+                # Look for button-like widgets
+                if 'button' in class_name:
+                    # Check if it might be a capture button
+                    if hasattr(child, 'text') and child.text in ['', '●', '⚫', 'capture', 'shoot']:
+                        children_to_remove.append(child)
+                    elif hasattr(child, 'background_normal') or hasattr(child, 'source'):
+                        children_to_remove.append(child)
+            
+            # Recurse into child widgets
+            self._recursive_remove_buttons(child)
+        
+        # Remove identified buttons
+        for btn in children_to_remove:
+            try:
+                widget.remove_widget(btn)
+                Logger.info(f"CameraScanScreen: Removed button widget: {btn.__class__.__name__}")
+            except:
+                pass
 
     def _dispose_camera(self) -> None:
         """Release current camera widget and reset state."""
