@@ -129,7 +129,7 @@ class PersonalDocsScreen(Screen):
                 icon_color=(0.25, 0.60, 1.00, 1),
                 md_bg_color=(0.15, 0.17, 0.21, 1),
                 size_hint=(None, None),
-                size=(dp(50), dp(50)), 
+                size=(dp(50), dp(50)),  # Dimensiune fixă
                 pos_hint={'center_y': 0.5}
             )
                         
