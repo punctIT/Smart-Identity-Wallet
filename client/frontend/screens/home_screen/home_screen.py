@@ -21,7 +21,6 @@ from kivymd.uix.label import MDLabel
 from kivymd.uix.screen import MDScreen
 from kivymd.uix.scrollview import MDScrollView
 
-# Fixed imports for older KivyMD version
 try:
     from kivymd.uix.list import MDList, OneLineIconListItem
 except ImportError:
@@ -154,7 +153,6 @@ class SimpleDivider(Widget):
         self.rect.size = self.size
         self.rect.pos = self.pos
 
-# Custom list item that works with older KivyMD
 class MenuListItem(MDBoxLayout):
     def __init__(self, text, icon, on_release_callback, **kwargs):
         super().__init__(**kwargs)
@@ -401,38 +399,55 @@ class HomeScreen(MDScreen, Alignment):
         return main_container
 
     def _build_header_with_menu(self):
-        """Header with menu button"""
+        """Header with precisely positioned menu button"""
         header = MDBoxLayout(
             orientation="horizontal",
             size_hint_y=None,
             height=dp(56),
-            padding=[dp(16), dp(8), dp(16), dp(8)],
+            padding=[dp(16), dp(4), dp(16), dp(4)],  # Padding mai mic sus/jos
             spacing=dp(16)
         )
+        
+        # Container pentru butonul de meniu cu poziție custom
+        menu_container = MDBoxLayout(
+            orientation="vertical",
+            size_hint=(None, 1),
+            width=dp(40)
+        )
+        
+        # Spațiu de sus (pentru a împinge butonul mai jos)
+        top_spacer = Widget(
+            size_hint_y=None,
+            height=dp(12)  # Ajustează această valoare pentru poziția dorită
+        )
+        menu_container.add_widget(top_spacer)
         
         # Menu button
         menu_btn = MDIconButton(
             icon="menu",
             theme_icon_color="Custom",
             icon_color=TEXT_PRIMARY,
-            on_release=self._toggle_drawer
+            on_release=self._toggle_drawer,
+            size_hint_y=None,
+            height=dp(32)
         )
-        header.add_widget(menu_btn)
+        menu_container.add_widget(menu_btn)
+        
+        # Spațiu de jos (pentru a completa înălțimea)
+        menu_container.add_widget(Widget())  # Se extinde automat
+        
+        header.add_widget(menu_container)
         
         # Title section
-        title_box = MDBoxLayout(
-            orientation="horizontal", 
-            spacing=dp(12)
+        title_container = AnchorLayout(
+            anchor_y="center"  # Menține titlul centrat vertical
         )
         
-        # Logo
-        logo = Image(
-            source=str(LOGO_PATH),
-            size_hint=(None, None),
-            size=(dp(32), dp(32)),
-            pos_hint={'center_y': 0.5}
+        title_box = MDBoxLayout(
+            orientation="horizontal", 
+            spacing=dp(12),
+            adaptive_height=True
         )
-        title_box.add_widget(logo)
         
         # Title text
         title = MDLabel(
@@ -447,7 +462,9 @@ class HomeScreen(MDScreen, Alignment):
         title.bind(width=self._sync_text_width)
         title_box.add_widget(title)
         
-        header.add_widget(title_box)
+        title_container.add_widget(title_box)
+        header.add_widget(title_container)
+        
         return header
 
     def _build_content(self):
