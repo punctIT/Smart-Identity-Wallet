@@ -371,10 +371,10 @@ class ChatScreen(MDScreen):
             else:
                 # Show error from server
                 error_msg = response.get('error', 'Nu am putut procesa mesajul.')
-                self.add_message("Assistant", f"❌ {error_msg}", is_user=False)
+                self.add_message("Assistant", f"{error_msg}", is_user=False)
         else:
             # Show generic error
-            self.add_message("Assistant", "❌ Nu am putut procesa mesajul. Încearcă din nou.", is_user=False)
+            self.add_message("Assistant", "Nu am putut procesa mesajul. Încearcă din nou.", is_user=False)
     
     def send_message(self, instance=None):
         """Send a message and get response"""
