@@ -71,11 +71,14 @@ class PersonalDocsScreen(Screen):
         self.add_widget(self.main_box)
 
     def on_pre_enter(self, *args):
-        data = self.server.get_specific_data("GetWalletCards")
-        self.clear_docs()
-        print(data['data']['cards'])
-        self.add_docs(data['data']['cards'])
-        return super().on_pre_enter(*args)
+        if data is not None:
+            data = self.server.get_specific_data("GetWalletCards")
+            self.clear_docs()
+            print(data['data']['cards'])
+            self.add_docs(data['data']['cards'])
+            return super().on_pre_enter(*args)
+        else:
+            self.add_docs({})
 
     def clear_docs(self):
         self.doc_container.clear_widgets()
