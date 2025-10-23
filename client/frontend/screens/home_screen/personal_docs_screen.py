@@ -8,7 +8,8 @@ from kivy.graphics import Color, RoundedRectangle
 from kivy.metrics import dp, sp
 from frontend.screens.popup_screens.pop_card import CardPopup
 from frontend.screens.popup_screens.qr_popup import QrPopup 
-
+from kivymd.uix.button import MDIconButton
+from kivymd.uix.card import MDCard
 class Card(BoxLayout):
     def __init__(self, height=dp(80), radius=dp(22), bg_color=(0.18, 0.20, 0.25, 1), **kwargs):
         super().__init__(orientation='horizontal', size_hint=(1, None), height=height, padding=[dp(24), 0, dp(24), 0], **kwargs)
@@ -27,6 +28,15 @@ def match_name(name)->str:
         return "Carte de identitate"
     if name=='driving_license':
         return "Carnet de conducere"
+    else :
+        return name
+
+def match_entrypoint(name)->str:
+    name = name['title']
+    if name=='identity_card':
+        return "GetIdenityCard"
+    if name=='driving_license':
+        return "GetDrivingLicense"
     else :
         return name
 
@@ -109,25 +119,22 @@ class PersonalDocsScreen(Screen):
             main_btn.bind(size=lambda instance, value: setattr(instance, "text_size", value))
             
             def go_card(name):
-                popup = CardPopup(self.server, name)
+                popup = CardPopup(match_entrypoint(doc_name),self.server, name)
                 popup.show_popup()
             main_btn.bind(on_press=lambda instance, name=title: go_card(name))
             
-            # Butonul QR în dreapta
-            qr_btn = Button(
-                text="[b]QR[/b]",
-                markup=True,
-                font_size=sp(16),
-                color=(0.25, 0.60, 1.00, 1),
-                background_normal='',
-                background_color=(0.15, 0.17, 0.21, 1),  # Culoare puțin mai închisă
-                size_hint_x=0.2,  # Ocupă 20% din lățime
-                size_hint_y=0.8,  # Un pic mai mic pe înălțime
-                pos_hint={'center_y': 0.5}  # Centrat pe verticală
+            qr_btn = MDIconButton(
+                icon="qrcode", 
+                theme_icon_color="Custom",
+                icon_color=(0.25, 0.60, 1.00, 1),
+                md_bg_color=(0.15, 0.17, 0.21, 1),
+                size_hint=(None, None),
+                size=(dp(50), dp(50)), 
+                pos_hint={'center_y': 0.5}
             )
-            
+                        
             def show_qr(name):
-                popup = QrPopup("GetIdenityCard",self.server, name) 
+                popup = QrPopup(match_entrypoint(doc_name),self.server, name) 
                 popup.show_popup()
             qr_btn.bind(on_press=lambda instance, name=title: show_qr(name))
             
