@@ -6,7 +6,7 @@ from kivy.uix.button import Button
 from kivy.uix.scrollview import ScrollView
 from kivy.graphics import Color, RoundedRectangle
 from kivy.metrics import dp, sp
-from frontend.screens.pop_card import CardPopup
+from frontend.screens.popup_screens.pop_card import CardPopup
 
 class Card(BoxLayout):
     def __init__(self, height=dp(80), radius=dp(22), bg_color=(0.18, 0.20, 0.25, 1), **kwargs):
@@ -104,7 +104,7 @@ class PersonalDocsScreen(Screen):
             btn.bind(size=lambda instance, value: setattr(instance, "text_size", value))
             # Print the name when button is pressed
             def go_card(name):
-                popup = CardPopup(self.server, name, match_name(name))
+                popup = CardPopup(self.server, name)
                 popup.show_popup()
             btn.bind(on_press=lambda instance, name=title: go_card(name))
             card.add_widget(btn)
