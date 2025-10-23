@@ -2,8 +2,7 @@ use crate::others::common::MessageRequest;
 
 use serde_json::{json, Value};
 
-use std::sync::Arc;
-
+use std::{ sync::Arc};
 
 use crate::network::server_https::AppState;
 
@@ -13,11 +12,7 @@ impl PersonalDataManager {
         request: &MessageRequest,
         app_state: Arc<AppState>,
     ) -> (bool, Value) {
-        let card_fields = vec![
-            "identity_card",
-            "driving_license",
-            "passport",
-        ];
+        let card_fields = vec!["identity_card", "driving_license", "passport"];
 
         let mut cards = Vec::new();
 
@@ -44,14 +39,11 @@ impl PersonalDataManager {
 
         (true, json!({ "cards": cards }))
     }
-     pub async fn check_all_auto_data(
+    pub async fn check_all_auto_data(
         request: &MessageRequest,
         app_state: Arc<AppState>,
     ) -> (bool, Value) {
-        let card_fields = vec![
-            "vehicle_registration",
-            "insurance_auto",
-        ];
+        let card_fields = vec!["vehicle_registration", "insurance_auto"];
 
         let mut cards = Vec::new();
 
@@ -77,5 +69,21 @@ impl PersonalDataManager {
         }
 
         (true, json!({ "cards": cards }))
+    }
+    pub async fn get_user_info(
+        request: &MessageRequest,
+        app_state: Arc<AppState>,
+    ) -> (bool, Value) {
+        match app_state
+            .db
+            .select_row(format!(
+                "select email,username,phone_number from users where username='{}' or email='{}'",
+                request.user_id, request.user_id
+            ))
+            .await
+        {
+            Ok(e) => (true, json!({ "user": e })),
+            Err(e) => (false, json!({ "Errro": e.to_string() })),
+        }
     }
 }
