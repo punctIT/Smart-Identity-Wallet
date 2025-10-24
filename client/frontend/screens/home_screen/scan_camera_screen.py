@@ -393,8 +393,8 @@ class CameraScanScreen(MDScreen, Alignment):
     # Photo capture completion
     # ------------------------------------------------------------------
     def _on_capture_completed(self, filepath: Path) -> None:
-        """Called after XCamera fired on_picture_taken - navigate to processing screen."""
-        Logger.info(f"CameraScanScreen: Photo captured, navigating to processing screen")
+        """Called after XCamera fired on_picture_taken - go back to previous screen."""
+        Logger.info(f"CameraScanScreen: Photo captured, going back to previous screen")
         
         # Mark photo as taken and disable further captures
         self._photo_taken = True
@@ -406,33 +406,8 @@ class CameraScanScreen(MDScreen, Alignment):
         if self.capture_button:
             self.capture_button.disabled = True
             
-        # Navigate to processing screen
-        manager = getattr(self, "manager", None)
-        if manager:
-            # Ensure processing screen exists
-            if not manager.has_screen("processing"):
-                from frontend.screens.processing_screen import ProcessingScreen
-                processing_screen = ProcessingScreen()
-                manager.add_widget(processing_screen)
-            
-            # Set transition direction
-            tr = getattr(manager, "transition", None)
-            prev_dir = getattr(tr, "direction", None)
-            if tr:
-                tr.direction = "up"
-            
-            # Navigate to processing screen
-            manager.current = "processing"
-            
-            # Tell processing screen to start processing
-            processing_screen = manager.get_screen("processing")
-            processing_screen.start_processing(filepath)
-            
-            # Restore previous transition direction
-            if tr and prev_dir:
-                tr.direction = prev_dir
-        else:
-            Logger.warning("CameraScanScreen: No screen manager available")
+        # Go back to previous screen (usually home)
+        self._go_back()
 
     # ------------------------------------------------------------------
     # Error + navigation
