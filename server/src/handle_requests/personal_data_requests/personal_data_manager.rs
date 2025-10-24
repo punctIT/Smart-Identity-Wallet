@@ -2,7 +2,7 @@ use crate::others::common::MessageRequest;
 
 use serde_json::{json, Value};
 
-use std::{ sync::Arc};
+use std::sync::Arc;
 
 use crate::network::server_https::AppState;
 
