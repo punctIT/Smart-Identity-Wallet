@@ -21,8 +21,6 @@ from frontend.screens.cards_screen.idenity_card import IDScreen
 from frontend.screens.settings.settings import SettingsScreen
 from frontend.screens.settings.account_info_screen import AccountInfoScreen
 from frontend.screens.settings.security_screen import SecurityScreen
-from frontend.screens.photo_success_screen import PhotoSuccessScreen
-from frontend.screens.processing_screen import ProcessingScreen
 from frontend.screens.save_screens.save_data import SaveScreen
 
 if platform == "android":
@@ -115,8 +113,6 @@ class SmartIdApp(MDApp):
         sm.add_widget(TransportDocsScreen(self.server))
         sm.add_widget(DiverseDocsScreen(self.server))
         sm.add_widget(CameraScanScreen(self.server))
-        sm.add_widget(PhotoSuccessScreen())
-        sm.add_widget(ProcessingScreen())
         sm.add_widget(ChatScreen(self.server))
         sm.add_widget(IDScreen(self.server))
         sm.add_widget(SettingsScreen(self.server))
