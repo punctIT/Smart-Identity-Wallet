@@ -102,6 +102,8 @@ DRAWER_MENU_ITEMS = [
     {"text": "Chat Asistent", "icon": "chat-outline", "screen": "chat"},
     {"divider": True},
     {"text": "Setări", "icon": "cog-outline", "screen": "settings"},
+    {"divider": True},
+    {"text": "Deconectare", "icon": "logout", "screen": "login"},
 ]
 
 # Keep your existing carousel class
