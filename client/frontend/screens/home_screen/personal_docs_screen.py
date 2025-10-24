@@ -49,7 +49,7 @@ class PersonalDocsScreen(Screen):
         self.main_box = BoxLayout(orientation='vertical', size_hint_y=1,spacing=dp(16), padding=[dp(24), dp(24), dp(24), 0])
 
         title_lbl = Label(
-            text="[color=#2696FF][b]Acte Vehicul[/b][/color]",
+            text="[color=#2696FF][b]Documente Personale[/b][/color]",
             markup=True,
             font_size=sp(28),
             color=(0.25, 0.60, 1.00, 1),

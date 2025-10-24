@@ -33,7 +33,8 @@ import base64
 import json
 
 ASSETS_DIR = Path(__file__).parent.parent / "assets"
-LOGO_PATH = ASSETS_DIR / "test.png"
+#LOGO_PATH = ASSETS_DIR / "test.png"
+LOGO_PATH = "/storage/emulated/0/Pictures/SmartID/document.jpg"
 
 def image_to_base64(image_path: str) -> str:
     """
@@ -240,8 +241,9 @@ class SaveScreen(Screen):
                 
         except Exception as e:
             Logger.error(f"SaveScreen: Error in process_ocr: {e}")
-            Clock.schedule_once(lambda dt: self.on_ocr_error(str(e)), 0)
-    
+            err_msg = str(e)  # ⚡ Salvează mesajul local
+            Clock.schedule_once(lambda dt: self.on_ocr_error(err_msg), 0)
+            
     def on_ocr_complete(self, result_dict):
         """Called when OCR processing is complete"""
         self.show_loading(False)

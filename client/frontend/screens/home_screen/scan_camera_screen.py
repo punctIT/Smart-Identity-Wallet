@@ -267,9 +267,17 @@ class CameraScanScreen(MDScreen, Alignment):
         camera_kwargs = {
             "play": False,
             "directory": str(self._capture_dir),
-            "filename": f"document.jpg"
         }
-
+        camera = XCamera(**camera_kwargs)
+       
+        def _on_capture(instance, filename):
+            import os, shutil
+            new_name = os.path.join(self._capture_dir, "document.jpg")
+            shutil.move(filename, new_name)
+            print(f"Saved capture as: {new_name}")
+            
+        camera.bind(on_capture=_on_capture)
+        
         if platform == "android":
             index = self._select_primary_camera_index()
             Logger.info(f"CameraScanScreen: Selected camera index: {index}")
@@ -279,7 +287,7 @@ class CameraScanScreen(MDScreen, Alignment):
 
         Logger.info(f"CameraScanScreen: Creating XCamera with kwargs: {camera_kwargs}")
         try:
-            camera = XCamera(**camera_kwargs)
+           
             Logger.info("CameraScanScreen: XCamera created successfully")
         except Exception as exc:
             Logger.error(f"CameraScanScreen: Unable to initialise camera: {exc}")
