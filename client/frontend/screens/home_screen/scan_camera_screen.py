@@ -16,6 +16,7 @@ from kivymd.uix.boxlayout import MDBoxLayout
 from kivymd.uix.button import MDIconButton
 from kivymd.uix.label import MDLabel
 from kivymd.uix.screen import MDScreen
+from kivymd.uix.dialog import MDDialog
 
 from kivy_garden.xcamera.xcamera import XCamera
 
@@ -57,9 +58,14 @@ class CameraScanScreen(MDScreen, Alignment):
         self._rotation = None
         self.capture_button: Optional[MDIconButton] = None
         self._capture_in_progress = False
-        self._photo_taken = False  # Track if photo has been taken
 
-        # Remove popup/dialog related attributes since we're using processing screen now
+        # Popup/progress flow
+        # MODIFICARE: Păstrăm MDDialog, dar nu mai folosim _processing_dialog_open
+        # Ne bazăm pe obiectul dialogului pentru a gestiona starea deschis/închis.
+        self._processing_dialog: Optional[MDDialog] = None
+        self._processing_event = None
+        self._fallback_label: Optional[MDLabel] = None
+
         self._build_ui()
 
     # ------------------------------------------------------------------
@@ -114,8 +120,6 @@ class CameraScanScreen(MDScreen, Alignment):
     # ------------------------------------------------------------------
     def on_pre_enter(self, *_):
         super().on_pre_enter()
-        # Reset photo taken flag when entering the screen
-        self._photo_taken = False
         self._ensure_camera_ready()
         # Bind app lifecycle events pentru Android
         if platform == "android":
@@ -137,6 +141,7 @@ class CameraScanScreen(MDScreen, Alignment):
         super().on_leave()
         if self.camera_view:
             self.camera_view.play = False
+        self._cancel_processing_flow()
         # Unbind app lifecycle events
         if platform == "android":
             app = App.get_running_app()
@@ -257,15 +262,17 @@ class CameraScanScreen(MDScreen, Alignment):
 
         camera.bind(pos=_update_origin, size=_update_origin)
 
-        # Când o poză este făcută, navighează la ecranul de procesare
+        # Când o poză este făcută, rescanare, afișare popup și navigare înapoi
         def on_picture(_, filepath):
             Logger.info(f"CameraScanScreen: Saved photo -> {filepath}")
             print(f"[Camera] photo saved -> {filepath}", flush=True)
-            # Use Clock.schedule_once to ensure UI updates happen on main thread
-            Clock.schedule_once(lambda dt: self._on_capture_completed(Path(filepath)), 0)
+            self._capture_in_progress = False
+            if self.capture_button:
+                self.capture_button.disabled = False
             if platform == "android" and MediaScannerConnection:
                 ctx = PythonActivity.mActivity
                 MediaScannerConnection.scanFile(ctx, [filepath], None, None)
+            self._on_capture_completed(Path(filepath))
 
         camera.bind(on_picture_taken=on_picture)
 
@@ -390,24 +397,112 @@ class CameraScanScreen(MDScreen, Alignment):
             xcamera_module.take_picture = android_api.take_picture
 
     # ------------------------------------------------------------------
-    # Photo capture completion
+    # Popup flow (SHOW → wait → CLOSE → back)
     # ------------------------------------------------------------------
     def _on_capture_completed(self, filepath: Path) -> None:
-        """Called after XCamera fired on_picture_taken - go back to previous screen."""
-        Logger.info(f"CameraScanScreen: Photo captured, going back to previous screen")
+        """Called after XCamera fired on_picture_taken."""
+        msg = f"Fotografie salvată:\n[b]{filepath.name}[/b]"
         
-        # Mark photo as taken and disable further captures
-        self._photo_taken = True
-        self._capture_in_progress = False
+        self._show_processing_dialog(title="Succes", text=msg)
         
-        # Stop camera and disable capture button permanently
-        if self.camera_view:
-            self.camera_view.play = False
+        # Setează evenimentul de închidere după 2 secunde
+        if self._processing_event:
+            self._processing_event.cancel()
+        self._processing_event = Clock.schedule_once(self._finish_processing, 2.0)
+        
+        # Butonul este dezactivat la începutul capturii, va fi activat doar după navigare.
+
+    def _show_processing_dialog(self, title: str = "Procesare",
+                                text: str = "Se procesează...", seconds: float | None = None) -> None:
+        """
+        Creează/deschide popup-ul tranzitoriu. 
+        MODIFICARE: Logică simplificată pentru a preveni erorile de stări deschise.
+        """
+        # Închide și șterge dialogul existent pentru a evita probleme de stare
+        if self._processing_dialog:
+            try:
+                self._processing_dialog.dismiss()
+            except:
+                pass
+            self._processing_dialog = None
+        
+        # Creează un dialog nou de fiecare dată
+        self._processing_dialog = MDDialog(
+            title=title,
+            text=text,
+            auto_dismiss=False,
+            size_hint=(0.8, None),
+            height=dp(200)
+        )
+
+        # Deschide dialogul
+        try:
+            self._processing_dialog.open()
+        except Exception as e:
+            Logger.error(f"CameraScanScreen: Failed to open dialog: {e}")
+            # Fallback - folosește print pentru debugging pe APK
+            print(f"[Camera] Dialog error: {e}, showing message: {title} - {text}", flush=True)
+            # Fallback - arată un label temporar peste UI
+            self._show_fallback_notification(f"{title}: {text}")
+
+
+    def _finish_processing(self, *_):
+        """
+        Închide dialogul și navighează înapoi.
+        """
+        self._processing_event = None
+        
+        # MODIFICARE: Resetăm starea înainte de a închide și naviga.
+        self._capture_in_progress = False 
         if self.capture_button:
-            self.capture_button.disabled = True
+            self.capture_button.disabled = False
             
-        # Go back to previous screen (usually home)
+        self._dismiss_processing_dialog()
         self._go_back()
+
+    def _show_fallback_notification(self, message: str) -> None:
+        """Arată un label temporar ca fallback dacă MDDialog nu funcționează."""
+        if self._fallback_label:
+            if self._fallback_label.parent:
+                self._fallback_label.parent.remove_widget(self._fallback_label)
+        
+        self._fallback_label = MDLabel(
+            text=message,
+            theme_text_color="Custom",
+            text_color=(1, 1, 1, 1),
+            pos_hint={"center_x": 0.5, "center_y": 0.5},
+            size_hint=(0.8, None),
+            height=dp(100),
+            halign="center",
+            markup=True
+        )
+        
+        if self.camera_holder:
+            self.camera_holder.add_widget(self._fallback_label)
+
+    def _dismiss_processing_dialog(self) -> None:
+        """
+        Închide dialogul dacă este deschis.
+        """
+        if self._processing_dialog:
+            try:
+                self._processing_dialog.dismiss()
+            except Exception as e:
+                Logger.warning(f"CameraScanScreen: Failed to dismiss dialog: {e}")
+            finally:
+                self._processing_dialog = None
+        
+        # Șterge și fallback label-ul dacă există
+        if self._fallback_label and self._fallback_label.parent:
+            self._fallback_label.parent.remove_widget(self._fallback_label)
+            self._fallback_label = None
+
+    def _cancel_processing_flow(self) -> None:
+        """Anulează evenimentele temporizate și închide dialogul."""
+        if self._processing_event:
+            self._processing_event.cancel()
+            self._processing_event = None
+        self._dismiss_processing_dialog()
 
     # ------------------------------------------------------------------
     # Error + navigation
@@ -429,6 +524,7 @@ class CameraScanScreen(MDScreen, Alignment):
         if self.capture_button:
             self.capture_button.disabled = True
         self._capture_in_progress = False
+        self._cancel_processing_flow()
 
     def _remove_default_capture_button(self) -> None:
         """Remove the stock XCamera capture button so our custom control is the only one."""
@@ -459,20 +555,16 @@ class CameraScanScreen(MDScreen, Alignment):
         if self.capture_button:
             self.capture_button.disabled = True
         self._capture_in_progress = False
+        self._cancel_processing_flow()
 
     # ------------------------------------------------------------------
     # Capture actions
     # ------------------------------------------------------------------
     def capture_photo(self) -> None:
-        """Trigger a capture and log to terminal. Only allows one photo per session."""
-        if self._photo_taken:
-            Logger.info("CameraScanScreen: Photo already taken, capture disabled.")
-            return
-        
+        """Trigger a capture and log to terminal."""
         if self._capture_in_progress:
             Logger.info("CameraScanScreen: Capture already in progress.")
             return
-            
         if not self.camera_view:
             Logger.warning("CameraScanScreen: Capture requested without an active camera.")
             self._show_camera_error("Camera indisponibilă.")
