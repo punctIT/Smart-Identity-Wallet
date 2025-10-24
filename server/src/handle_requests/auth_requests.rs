@@ -1,12 +1,12 @@
+use crate::data_manager::password_hashing::PasswordHashManager;
 use crate::network::auth::{LoginRequest, LoginResponse, RegisterRequest, UserInfo};
+use crate::network::server_https::AppState;
 use axum::{
     extract::{Json as ExtractJson, State},
     response::Json,
 };
 use serde_json::{json, Value};
 use std::sync::Arc;
-use crate::data_manager::password_hashing::PasswordHashManager;
-use crate::network::server_https::AppState;
 
 pub struct AuthRequestHandler {}
 impl AuthRequestHandler {

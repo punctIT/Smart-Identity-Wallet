@@ -30,12 +30,23 @@ class CardPopup:
         scroll = ScrollView(size_hint=(1, 0.9))
         doc_container = BoxLayout(orientation='vertical', size_hint_y=None, spacing=dp(8))
         doc_container.bind(minimum_height=doc_container.setter('height'))
-        print(self.ep)
         # Get data and populate
         data = self.server.get_specific_data(self.ep)
+       
         #print(f"Popup data: {data}")  # Debug print
         if data and 'data' in data:
-            for key, value in data['data'].items():
+            import json
+            raw_info = data['data']
+            if isinstance(raw_info, str):
+                try:
+                    info = json.loads(raw_info)
+                except Exception as e:
+                    print("Eroare la json.loads:", e)
+                    info = {}
+            else:
+                info = raw_info
+
+            for key, value in info.items():
                 doc_container.add_widget(Label(
                     text=f"[b]{str(key)}[/b]", 
                     font_size=sp(16), 
