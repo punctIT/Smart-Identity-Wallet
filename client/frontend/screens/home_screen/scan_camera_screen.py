@@ -547,12 +547,12 @@ class CameraScanScreen(MDScreen, Alignment):
         manager = getattr(self, "manager", None)
         if not manager:
             return
-        if manager.has_screen("home"):
+        if manager.has_screen("save_data"):
             tr = getattr(manager, "transition", None)
             prev_dir = getattr(tr, "direction", None)
             if tr:
                 tr.direction = "down"
-            manager.current = "home"
+            manager.current = "save_data"
             if tr and prev_dir:
                 tr.direction = prev_dir
         else:

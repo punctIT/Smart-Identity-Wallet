@@ -1,8 +1,12 @@
 import cv2
 import numpy as np
 import pytesseract
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 from typing import Dict, List, Tuple, Optional
 import json
+import base64
+import tempfile
+import os
 
 
 class IDCardProcessor:
@@ -72,6 +76,110 @@ class IDCardProcessor:
         if img is None:
             raise FileNotFoundError(f"Image not found: {image_path}")
         return img
+    
+    def base64_to_image(self, base64_string: str, output_path: Optional[str] = None) -> str:
+        """
+        Convert a base64 string to a JPG image file.
+        
+        Args:
+            base64_string: Base64 encoded image string
+            output_path: Optional output path. If None, creates a temporary file
+            
+        Returns:
+            Path to the created image file
+            
+        Raises:
+            ValueError: If base64 string is invalid
+        """
+        try:
+            # Remove data URL prefix if present (e.g., "data:image/jpeg;base64,")
+            if ',' in base64_string:
+                base64_string = base64_string.split(',')[1]
+            
+            # Decode base64 string
+            image_data = base64.b64decode(base64_string)
+            
+            # Convert to numpy array
+            nparr = np.frombuffer(image_data, np.uint8)
+            
+            # Decode image
+            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            
+            if img is None:
+                raise ValueError("Invalid image data in base64 string")
+            
+            # Generate output path if not provided
+            if output_path is None:
+                temp_fd, output_path = tempfile.mkstemp(suffix='.jpg')
+                os.close(temp_fd)  # Close the file descriptor
+            
+            # Save as JPG
+            cv2.imwrite(output_path, img)
+            
+            return output_path
+            
+        except Exception as e:
+            raise ValueError(f"Error converting base64 to image: {e}")
+    
+    def image_to_base64(self, image_path: str) -> str:
+        """
+        Convert an image file to base64 string.
+        
+        Args:
+            image_path: Path to the image file
+            
+        Returns:
+            Base64 encoded string of the image
+            
+        Raises:
+            FileNotFoundError: If image file is not found
+        """
+        try:
+            # Read the image file
+            with open(image_path, 'rb') as image_file:
+                image_data = image_file.read()
+            
+            # Encode to base64
+            base64_string = base64.b64encode(image_data).decode('utf-8')
+            
+            return base64_string
+            
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Image file not found: {image_path}")
+        except Exception as e:
+            raise ValueError(f"Error converting image to base64: {e}")
+    
+    def process_id_card_from_base64(self, base64_string: str, cleanup_temp: bool = True) -> Dict[str, str]:
+        """
+        Process an ID card from a base64 string.
+        
+        Args:
+            base64_string: Base64 encoded image string
+            cleanup_temp: Whether to delete the temporary image file after processing
+            
+        Returns:
+            Dictionary with all processed field values
+            
+        Raises:
+            ValueError: If base64 string is invalid
+        """
+        temp_image_path = None
+        try:
+            # Convert base64 to temporary image file
+            temp_image_path = self.base64_to_image(base64_string)
+            
+            # Process the temporary image
+            result = self.process_id_card(temp_image_path)
+            
+            return result
+            
+        finally:
+            # Clean up temporary file if requested
+            if cleanup_temp and temp_image_path and os.path.exists(temp_image_path):
+                try:
+                    os.remove(temp_image_path)
+                except Exception as e:
+                    print(f"Warning: Could not delete temporary file {temp_image_path}: {e}")
     
     def crop_image(self, img: np.ndarray) -> np.ndarray:
         """
@@ -324,18 +432,43 @@ class IDCardProcessor:
 # Example usage
 if __name__ == "__main__":
     processor = IDCardProcessor()
+    
+    # Example 1: Process from file path and get JSON result
     try:
-        result = processor.process_id_card("test.jpg")
-        print("Extracted Information:")
+        result = processor.process_id_card("test.png")
+        print("Extracted Information from file:")
         print("-" * 40)
         for field, value in result.items():
             print(f"{field.replace('_', ' ').title()}: {value}")
-        with open("extracted_data.json", "w", encoding="utf-8") as f:
-            json.dump(result, f, ensure_ascii=False, indent=2)
-        print(f"\n[✔] Data saved to extracted_data.json")
         
-        # Generate debug grid
-        processor.draw_crop_grid("buletin2.jpg", "debug_grid.jpg")
+        # Get JSON string if needed
+        json_string = json.dumps(result, ensure_ascii=False, indent=2)
+        print("\nJSON Result:")
+        print(json_string)
+        
+        # Convert image to base64
+        base64_string = processor.image_to_base64("test.png")
+        print(f"\n[✔] Image converted to base64 (length: {len(base64_string)} characters)")
         
     except Exception as e:
-        print(f"Error processing ID card: {e}")
+        print(f"Error processing ID card from file: {e}")
+    
+    # Example 2: Process from base64 string and get JSON result
+    try:
+        # First convert an existing image to base64 for demonstration
+        base64_string = processor.image_to_base64("test.png")
+        
+        # Then process the base64 string
+        result_from_base64 = processor.process_id_card_from_base64(base64_string)
+        print("\n\nExtracted Information from base64:")
+        print("-" * 40)
+        for field, value in result_from_base64.items():
+            print(f"{field.replace('_', ' ').title()}: {value}")
+        
+        # Get JSON string
+        json_string_from_base64 = json.dumps(result_from_base64, ensure_ascii=False, indent=2)
+        print("\nJSON Result from base64:")
+        print(json_string_from_base64)
+        
+    except Exception as e:
+        print(f"Error processing ID card from base64: {e}")

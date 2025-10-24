@@ -23,7 +23,7 @@ from frontend.screens.settings.account_info_screen import AccountInfoScreen
 from frontend.screens.settings.security_screen import SecurityScreen
 from frontend.screens.photo_success_screen import PhotoSuccessScreen
 from frontend.screens.processing_screen import ProcessingScreen
-
+from frontend.screens.save_screens.save_data import SaveScreen
 
 if platform == "android":
     from android.permissions import request_permissions, Permission
@@ -122,6 +122,7 @@ class SmartIdApp(MDApp):
         sm.add_widget(SettingsScreen(self.server))
         sm.add_widget(AccountInfoScreen(self.server))
         sm.add_widget(SecurityScreen(self.server))
+        sm.add_widget(SaveScreen(self.server))
         sm.current = 'server_setup'
         
         Window.bind(on_key_down=self._on_key_down)
