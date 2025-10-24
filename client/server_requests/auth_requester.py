@@ -4,6 +4,36 @@
 class AuthRequester:
     def __init__(self):
         pass
+    def log_out(self):
+        if self.token == "":
+            return
+        try:
+            payload = {
+                "message_type": "logout",
+                "user_id": self.token, 
+                "content": None,
+                "token": self.token
+            }
+            
+            response = self.session.post(
+                f"{self.server_url}/api/message", 
+                json=payload, 
+                timeout=5
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                print(f"✅ {data['success']}")
+                #self.get_specific_data("ceva")
+                return data
+            else:
+                print(f"❌ Eroare: {response.status_code}")
+                return None
+        except Exception as e:
+            print(f"❌ Eroare: {str(e)}")
+            return None
+        
+
     def send_login(self, username, password):
         try:
             payload = {
