@@ -115,7 +115,6 @@ class SmartIdApp(MDApp):
         sm.add_widget(TransportDocsScreen(self.server))
         sm.add_widget(DiverseDocsScreen(self.server))
         sm.add_widget(CameraScanScreen(self.server))
-        sm.add_widget(OCRProcessingScreen(self.server))
         sm.add_widget(PhotoSuccessScreen())
         sm.add_widget(ProcessingScreen())
         sm.add_widget(ChatScreen(self.server))
