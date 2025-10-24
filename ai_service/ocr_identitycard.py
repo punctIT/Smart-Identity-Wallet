@@ -323,20 +323,13 @@ class IDCardProcessor:
 
 # Example usage
 if __name__ == "__main__":
-    # Initialize the processor
     processor = IDCardProcessor()
-    
-    # Process an ID card
     try:
-        result = processor.process_id_card("buletin2.jpg")
-        
-        # Print results
+        result = processor.process_id_card("test.jpg")
         print("Extracted Information:")
         print("-" * 40)
         for field, value in result.items():
             print(f"{field.replace('_', ' ').title()}: {value}")
-        
-        # Save as JSON file
         with open("extracted_data.json", "w", encoding="utf-8") as f:
             json.dump(result, f, ensure_ascii=False, indent=2)
         print(f"\n[✔] Data saved to extracted_data.json")
