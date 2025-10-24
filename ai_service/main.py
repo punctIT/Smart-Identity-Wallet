@@ -23,9 +23,9 @@ class MessageRequest(BaseModel):
     content: Any
 
 from chat_bot import ChatBot
-
+from ocr_identitycard import IDCardProcessor
 chatbot = ChatBot()
-
+ocr = IDCardProcessor()
 @app.get("/health")
 async def health():
     return "salut"
@@ -33,9 +33,9 @@ async def health():
 @app.post("/chat")
 async def chat(request: MessageRequest):
     print(request.content)
-    response = await chatbot.get_response(request.content)  # AWAIT aici!
+    response = await chatbot.get_response(request.content) 
     return response
 
 @app.post("/ocr")
 async def ocr(file: MessageRequest):
-    return "salut"
+    return ocr.process_id_card_from_base64(file)

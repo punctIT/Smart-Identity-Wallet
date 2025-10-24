@@ -7,7 +7,36 @@ from kivy.uix.scrollview import ScrollView
 from kivy.graphics import Color, RoundedRectangle
 from kivy.metrics import dp, sp
 from frontend.screens.popup_screens.pop_card import CardPopup
+import base64
 
+def image_to_base64(self, image_path: str) -> str:
+        """
+        Convert an image file to base64 string.
+        
+        Args:
+            image_path: Path to the image file
+            
+        Returns:
+            Base64 encoded string of the image
+            
+        Raises:
+            FileNotFoundError: If image file is not found
+        """
+        try:
+            # Read the image file
+            with open(image_path, 'rb') as image_file:
+                image_data = image_file.read()
+            
+            # Encode to base64
+            base64_string = base64.b64encode(image_data).decode('utf-8')
+            
+            return base64_string
+            
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Image file not found: {image_path}")
+        except Exception as e:
+            raise ValueError(f"Error converting image to base64: {e}")
+        
 class Card(BoxLayout):
     def __init__(self, height=dp(80), radius=dp(22), bg_color=(0.18, 0.20, 0.25, 1), **kwargs):
         super().__init__(orientation='horizontal', size_hint=(1, None), height=height, padding=[dp(24), 0, dp(24), 0], **kwargs)
