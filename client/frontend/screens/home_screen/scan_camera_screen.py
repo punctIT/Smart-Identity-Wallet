@@ -456,44 +456,43 @@ class CameraScanScreen(MDScreen, Alignment):
         if self.capture_button:
             self.capture_button.disabled = False
         
-        # Navigate to OCR processing screen with the captured image
-        self._navigate_to_ocr_screen(str(filepath))
+        # Navigate to save_data screen with the captured image for OCR processing
+        self._navigate_to_save_screen(str(filepath))
 
-    def _navigate_to_ocr_screen(self, image_path: str) -> None:
-        """Navigate to OCR processing screen with the captured image."""
+    def _navigate_to_save_screen(self, image_path: str) -> None:
+        """Navigate to save_data screen with the captured image for OCR processing."""
+        print(f"🔄 [NEW CODE] _navigate_to_save_screen called with: {image_path}", flush=True)
+        Logger.info(f"CameraScanScreen: Navigating to save_data screen with image: {image_path}")
+        
         manager = getattr(self, "manager", None)
         if not manager:
             Logger.error("CameraScanScreen: No screen manager available")
+            print("❌ [NEW CODE] No screen manager available!", flush=True)
             return
             
-        # Check if OCR processing screen exists, if not create it
-        if not manager.has_screen("ocr_processing"):
+        # Navigate to save_data screen and set image path for OCR processing
+        print(f"🔍 [NEW CODE] Navigating to save_data screen...", flush=True)
+        if manager.has_screen("save_data"):
             try:
-                from frontend.screens.ocr_processing_screen import OCRProcessingScreen
-                ocr_screen = OCRProcessingScreen(server=self.server)
-                manager.add_widget(ocr_screen)
-                Logger.info("CameraScanScreen: Created OCR processing screen")
-            except ImportError as e:
-                Logger.error(f"CameraScanScreen: Could not import OCR processing screen: {e}")
-                # Fallback: go back to previous screen and delete image
+                save_screen = manager.get_screen("save_data")
+                save_screen.set_image_path(image_path)
+                
+                # Set transition direction
+                if hasattr(manager, "transition"):
+                    manager.transition.direction = "left"
+                
+                manager.current = "save_data"
+                Logger.info(f"CameraScanScreen: Navigated to save_data screen with image: {image_path}")
+                print(f"✅ [NEW CODE] Successfully navigated to save_data screen", flush=True)
+                
+            except Exception as e:
+                Logger.error(f"CameraScanScreen: Failed to navigate to save_data screen: {e}")
+                print(f"❌ [NEW CODE] Navigation failed: {e}", flush=True)
+                # Fallback: go back and cleanup
                 self._cleanup_and_go_back(image_path)
-                return
-        
-        # Set the image path and navigate to OCR screen
-        try:
-            ocr_screen = manager.get_screen("ocr_processing")
-            ocr_screen.set_image_path(image_path)
-            
-            # Set transition direction
-            if hasattr(manager, "transition"):
-                manager.transition.direction = "left"
-            
-            manager.current = "ocr_processing"
-            Logger.info(f"CameraScanScreen: Navigated to OCR processing screen with image: {image_path}")
-            
-        except Exception as e:
-            Logger.error(f"CameraScanScreen: Failed to navigate to OCR screen: {e}")
-            # Fallback: go back and cleanup
+        else:
+            Logger.error("CameraScanScreen: save_data screen not found")
+            print("❌ [NEW CODE] save_data screen not found!", flush=True)
             self._cleanup_and_go_back(image_path)
 
     def _cleanup_and_go_back(self, image_path: str) -> None:
