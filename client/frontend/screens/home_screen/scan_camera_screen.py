@@ -448,7 +448,7 @@ class CameraScanScreen(MDScreen, Alignment):
     # Direct navigation back after photo capture
     # ------------------------------------------------------------------
     def _on_capture_completed(self, filepath: Path) -> None:
-        """Called after XCamera fires on_picture_taken - send to OCR and navigate back."""
+        """Called after XCamera fires on_picture_taken - navigate to OCR processing screen."""
         Logger.info(f"CameraScanScreen: Photo capture completed: {filepath}")
         
         # Reset capture state
@@ -456,39 +456,56 @@ class CameraScanScreen(MDScreen, Alignment):
         if self.capture_button:
             self.capture_button.disabled = False
         
-        # Send image for OCR processing if server connection is available
-        if self.server and hasattr(self.server, 'sent_OCR_image'):
-            Logger.info(f"CameraScanScreen: Sending image for OCR processing: {filepath}")
+        # Navigate to OCR processing screen with the captured image
+        self._navigate_to_ocr_screen(str(filepath))
+
+    def _navigate_to_ocr_screen(self, image_path: str) -> None:
+        """Navigate to OCR processing screen with the captured image."""
+        manager = getattr(self, "manager", None)
+        if not manager:
+            Logger.error("CameraScanScreen: No screen manager available")
+            return
+            
+        # Check if OCR processing screen exists, if not create it
+        if not manager.has_screen("ocr_processing"):
             try:
-                # Send image for OCR processing (this will also delete the file)
-                ocr_result = self.server.sent_OCR_image(str(filepath))
-                if ocr_result:
-                    Logger.info(f"CameraScanScreen: OCR processing successful")
-                    print(f"📄 OCR Result: {ocr_result}")
-                else:
-                    Logger.warning(f"CameraScanScreen: OCR processing failed")
-                    print(f"❌ OCR processing failed")
-            except Exception as e:
-                Logger.error(f"CameraScanScreen: Error during OCR processing: {e}")
-                print(f"❌ OCR Error: {e}")
-                # If OCR fails, try to delete the image manually
-                try:
-                    if filepath.exists():
-                        filepath.unlink()
-                        Logger.info(f"CameraScanScreen: Manually deleted image after OCR failure")
-                except Exception as delete_error:
-                    Logger.warning(f"CameraScanScreen: Failed to delete image after OCR failure: {delete_error}")
-        else:
-            Logger.warning(f"CameraScanScreen: No server connection available for OCR")
-            # If no server connection, just delete the image
-            try:
-                if filepath.exists():
-                    filepath.unlink()
-                    Logger.info(f"CameraScanScreen: Deleted image (no OCR available)")
-            except Exception as delete_error:
-                Logger.warning(f"CameraScanScreen: Failed to delete image: {delete_error}")
+                from frontend.screens.ocr_processing_screen import OCRProcessingScreen
+                ocr_screen = OCRProcessingScreen(server=self.server)
+                manager.add_widget(ocr_screen)
+                Logger.info("CameraScanScreen: Created OCR processing screen")
+            except ImportError as e:
+                Logger.error(f"CameraScanScreen: Could not import OCR processing screen: {e}")
+                # Fallback: go back to previous screen and delete image
+                self._cleanup_and_go_back(image_path)
+                return
         
-        # Navigate directly back to previous screen
+        # Set the image path and navigate to OCR screen
+        try:
+            ocr_screen = manager.get_screen("ocr_processing")
+            ocr_screen.set_image_path(image_path)
+            
+            # Set transition direction
+            if hasattr(manager, "transition"):
+                manager.transition.direction = "left"
+            
+            manager.current = "ocr_processing"
+            Logger.info(f"CameraScanScreen: Navigated to OCR processing screen with image: {image_path}")
+            
+        except Exception as e:
+            Logger.error(f"CameraScanScreen: Failed to navigate to OCR screen: {e}")
+            # Fallback: go back and cleanup
+            self._cleanup_and_go_back(image_path)
+
+    def _cleanup_and_go_back(self, image_path: str) -> None:
+        """Cleanup image and navigate back as fallback."""
+        try:
+            filepath = Path(image_path)
+            if filepath.exists():
+                filepath.unlink()
+                Logger.info(f"CameraScanScreen: Cleaned up image: {image_path}")
+        except Exception as e:
+            Logger.warning(f"CameraScanScreen: Failed to cleanup image: {e}")
+        
         self._go_back()
 
     # All dialog and popup methods removed for direct navigation
