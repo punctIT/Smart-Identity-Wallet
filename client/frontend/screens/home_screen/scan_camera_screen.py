@@ -268,16 +268,7 @@ class CameraScanScreen(MDScreen, Alignment):
             "play": False,
             "directory": str(self._capture_dir),
         }
-        camera = XCamera(**camera_kwargs)
-       
-        def _on_capture(instance, filename):
-            import os, shutil
-            new_name = os.path.join(self._capture_dir, "document.jpg")
-            shutil.move(filename, new_name)
-            print(f"Saved capture as: {new_name}")
-            
-        camera.bind(on_capture=_on_capture)
-        
+
         if platform == "android":
             index = self._select_primary_camera_index()
             Logger.info(f"CameraScanScreen: Selected camera index: {index}")
@@ -287,7 +278,7 @@ class CameraScanScreen(MDScreen, Alignment):
 
         Logger.info(f"CameraScanScreen: Creating XCamera with kwargs: {camera_kwargs}")
         try:
-           
+            camera = XCamera(**camera_kwargs)
             Logger.info("CameraScanScreen: XCamera created successfully")
         except Exception as exc:
             Logger.error(f"CameraScanScreen: Unable to initialise camera: {exc}")
@@ -321,16 +312,22 @@ class CameraScanScreen(MDScreen, Alignment):
             print(f"[Camera] photo saved -> {filepath}", flush=True)
 
             original_path = Path(filepath)
-            new_filename = f"document.jpg"
+            
+            # Create a unique filename with timestamp
+            from datetime import datetime
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            new_filename = f"smartid_doc_{timestamp}.jpg"
             new_filepath = original_path.parent / new_filename
             
             try:
-            # Rename the file
+                # Rename the file to custom name
                 original_path.rename(new_filepath)
                 Logger.info(f"CameraScanScreen: Photo renamed to -> {new_filepath}")
+                print(f"[Camera] photo renamed to -> {new_filepath}", flush=True)
                 final_path = new_filepath
             except Exception as e:
                 Logger.warning(f"CameraScanScreen: Failed to rename photo: {e}")
+                print(f"[Camera] rename failed, keeping original name: {e}", flush=True)
                 final_path = original_path
 
             # Notify Android media scanner if available

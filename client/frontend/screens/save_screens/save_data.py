@@ -73,6 +73,12 @@ class SaveScreen(Screen):
         self.input_fields = {}
         self.selected_data_type = "ID Card"
         
+        # OCR processing variables
+        self.image_path: Optional[str] = None
+        self.ocr_data: Optional[Dict[str, Any]] = None
+        self.processing = False
+        self.mode = "document_list"  # "document_list" or "ocr_processing"
+        
         # Main layout
         self.main_layout = MDBoxLayout(orientation='vertical', padding=dp(20), spacing=dp(15))
         
@@ -209,6 +215,13 @@ class SaveScreen(Screen):
         threading.Thread(target=self.process_ocr, daemon=True).start()
         
         return super().on_enter(*args)
+
+    def set_image_path(self, path: str) -> None:
+        """Set the path of the image to process and switch to OCR mode."""
+        self.image_path = path
+        self.mode = "ocr_processing"
+        Logger.info(f"SaveScreen: Set image path and switching to OCR mode: {path}")
+        print(f"🔄 [SaveScreen] Image path set to: {path}", flush=True)
     
     def show_loading(self, show: bool):
         """Toggle between loading and content view"""
@@ -226,7 +239,18 @@ class SaveScreen(Screen):
     def process_ocr(self):
         """Process OCR in background thread"""
         try:
-            img = image_to_base64(LOGO_PATH)
+            # Use the image path set by camera screen or fallback to LOGO_PATH
+            image_path_to_use = self.image_path if self.image_path else LOGO_PATH
+            
+            # Check if the file exists
+            if not Path(image_path_to_use).exists():
+                raise FileNotFoundError(f"Image file not found: {image_path_to_use}")
+            
+            Logger.info(f"SaveScreen: Processing OCR for image: {image_path_to_use}")
+            print(f"🔄 [SaveScreen] Processing OCR for: {image_path_to_use}", flush=True)
+            
+            # Convert image to base64 and send to server
+            img = image_to_base64(image_path_to_use)
             data = self.server.sent_OCR_image(img)
             print(data)
             
