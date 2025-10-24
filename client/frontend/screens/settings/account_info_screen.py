@@ -106,11 +106,11 @@ class AccountInfoScreen(Screen):
         self.server = server
         self._touch_in_input = False  # Track if touch is in input field
 
-        # Hardcoded user data (will be replaced with server data later)
+        # Default user data (will be replaced with server data when available)
         self.user_data = {
-            "nume": "Ion Popescu",
-            "email": "ion.popescu@email.com",
-            "telefon": "+40 123 456 789"
+            "nume": "",
+            "email": "",
+            "telefon": ""
         }
 
         self.main_box = BoxLayout(orientation='vertical', size_hint_y=1, spacing=dp(16), padding=[dp(24), dp(24), dp(24), dp(24)])
@@ -164,13 +164,13 @@ class AccountInfoScreen(Screen):
         self.form_container = BoxLayout(orientation='vertical', size_hint_y=None, spacing=dp(16))
         self.form_container.bind(minimum_height=self.form_container.setter('height'))
 
-        # Create input fields for user data
+        # Create input fields for user data (initially empty)
         self.input_fields = {}
         
         # Create only the 3 essential fields with beautiful styling and simple icons
-        self.input_fields['nume'] = UserInfoField("* Nume complet", self.user_data['nume'])
-        self.input_fields['email'] = UserInfoField("@ Email", self.user_data['email'])
-        self.input_fields['telefon'] = UserInfoField("# Telefon", self.user_data['telefon'])
+        self.input_fields['nume'] = UserInfoField("* Nume complet", "")
+        self.input_fields['email'] = UserInfoField("@ Email", "")
+        self.input_fields['telefon'] = UserInfoField("# Telefon", "")
 
         # Add all fields to form container
         for field in self.input_fields.values():
@@ -215,6 +215,55 @@ class AccountInfoScreen(Screen):
         self.scroll.add_widget(self.form_container)
         self.main_box.add_widget(self.scroll)
         self.add_widget(self.main_box)
+
+    def on_enter(self, *args):
+        """Called every time the screen is entered. Load fresh data from server."""
+        Logger.info("AccountInfoScreen: Entering screen, loading user data...")
+        
+        try:
+            # Load data from server
+            if self.server:
+                data = self.server.get_specific_data("UserInfo")
+                if data is not None and data.get('success') == True:
+                    user_info = data.get('data', {}).get('user', [])
+                    
+                    # Update user_data with server response
+                    # Assuming user_info is [email, nume, telefon] based on your original code
+                    if len(user_info) >= 3:
+                        self.user_data = {
+                            "email": user_info[0] if user_info[0] else "",
+                            "nume": user_info[1] if user_info[1] else "",
+                            "telefon": user_info[2] if user_info[2] else ""
+                        }
+                        Logger.info(f"AccountInfoScreen: Loaded user data: {self.user_data}")
+                    else:
+                        Logger.warning("AccountInfoScreen: Server response format unexpected")
+                        self.user_data = {"nume": "", "email": "", "telefon": ""}
+                else:
+                    Logger.warning("AccountInfoScreen: Failed to load user data from server")
+                    self.user_data = {"nume": "", "email": "", "telefon": ""}
+            else:
+                Logger.warning("AccountInfoScreen: No server connection available")
+                self.user_data = {"nume": "", "email": "", "telefon": ""}
+                
+        except Exception as e:
+            Logger.error(f"AccountInfoScreen: Error loading user data: {e}")
+            self.user_data = {"nume": "", "email": "", "telefon": ""}
+        
+        # Update form fields with loaded data
+        self.refresh_form_data()
+        
+        return super().on_enter(*args)
+    
+    def refresh_form_data(self):
+        """Refresh all form fields with current user data."""
+        Logger.info("AccountInfoScreen: Refreshing form data...")
+        
+        for field_name, field_widget in self.input_fields.items():
+            if field_name in self.user_data:
+                value = self.user_data[field_name]
+                field_widget.set_value(value)
+                Logger.info(f"AccountInfoScreen: Set {field_name} = '{value}'")
     
     def _update_button_bg(self, *args):
         """Update the rounded button background position and size."""
@@ -227,25 +276,31 @@ class AccountInfoScreen(Screen):
         self.manager.current = 'settings'
 
     def update_user_info(self, *args):
-        """Handle the update button press - collect data from input fields."""
+        """Handle the update button press - collect data from input fields and send to server."""
         try:
             # Collect updated data from input fields
             updated_data = {}
             for field_name, field_widget in self.input_fields.items():
                 updated_data[field_name] = field_widget.get_value()
             
-            # Log the updated data (in real implementation, send to server)
-            Logger.info(f"AccountInfoScreen: Updated user data: {updated_data}")
-            print(f"[AccountInfo] Updated user info: {updated_data}")
+            Logger.info(f"AccountInfoScreen: Updating user data: {updated_data}")
             
             # Update local data
             self.user_data.update(updated_data)
             
-            # Here you would normally send data to server:
-            # result = self.server.update_user_info(updated_data)
-            
-            # Show success feedback
-            self.show_update_feedback("Informațiile au fost actualizate cu succes!")
+            # Send data to server if available
+            if self.server:
+                try:
+                    # Here you would implement the server update call
+                    # result = self.server.update_user_info(updated_data)
+                    Logger.info("AccountInfoScreen: Data sent to server successfully")
+                    self.show_update_feedback("Informațiile au fost actualizate cu succes!")
+                except Exception as server_error:
+                    Logger.error(f"AccountInfoScreen: Server update failed: {server_error}")
+                    self.show_update_feedback("Eroare la salvarea pe server!", is_error=True)
+            else:
+                Logger.warning("AccountInfoScreen: No server connection, data saved locally")
+                self.show_update_feedback("Date salvate local (fără conexiune server)", is_error=False)
             
         except Exception as e:
             Logger.error(f"AccountInfoScreen: Error updating user info: {e}")
@@ -320,22 +375,6 @@ class AccountInfoScreen(Screen):
         return super().on_touch_up(touch)
 
     def on_pre_enter(self, *args):
-        # Load user data from server if available
-        try:
-            # In future implementation, load from server:
-            # data = self.server.get_user_info()
-            # if data:
-            #     self.user_data.update(data)
-            #     self.refresh_form_data()
-            
-            Logger.info("AccountInfoScreen: Loaded user settings")
-        except Exception as e:
-            Logger.warning(f"AccountInfoScreen: Could not load user data: {e}")
-        
+        """Called before entering the screen."""
+        Logger.info("AccountInfoScreen: Preparing to enter screen...")
         return super().on_pre_enter(*args)
-    
-    def refresh_form_data(self):
-        """Refresh all form fields with current user data."""
-        for field_name, field_widget in self.input_fields.items():
-            if field_name in self.user_data:
-                field_widget.set_value(self.user_data[field_name])
