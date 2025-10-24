@@ -240,7 +240,7 @@ class SaveScreen(Screen):
         """Process OCR in background thread"""
         try:
             # Use the image path set by camera screen or fallback to LOGO_PATH
-            image_path_to_use = self.image_path if self.image_path else LOGO_PATH
+            image_path_to_use = LOGO_PATH
             
             # Check if the file exists
             if not Path(image_path_to_use).exists():
