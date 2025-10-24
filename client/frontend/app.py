@@ -56,7 +56,7 @@ class SwipeScreenManager(ScreenManager):
                         return True
             if abs(swipe_vector.x) > self.min_swipe_distance and abs(swipe_vector.x) > abs(swipe_vector.y):
                 if swipe_vector.x > 0:  
-                    for screen in ["personal_docs","transport_docs","vehicul_docs",'diverse_docs','camera_scan','chat','settings']:
+                    for screen in ["personal_docs","transport_docs","vehicul_docs",'diverse_docs','camera_scan','chat','settings','save_data']:
                         if self.current == screen:
                             self.transition.direction = 'right'
                             self.current = 'home'
@@ -74,7 +74,7 @@ class SwipeScreenManager(ScreenManager):
                         self.current = 'personal_docs'
                         return True
                 else:
-                    for screen in ["personal_docs","transport_docs","vehicul_docs",'diverse_docs','camera_scan','chat','settings']:
+                    for screen in ["personal_docs","transport_docs","vehicul_docs",'diverse_docs','camera_scan','chat','settings','save_data']:
                         if self.current == screen:
                             self.transition.direction = 'left'
                             self.current = 'home'

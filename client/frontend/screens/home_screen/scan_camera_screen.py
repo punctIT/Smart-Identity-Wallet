@@ -266,7 +266,8 @@ class CameraScanScreen(MDScreen, Alignment):
         
         camera_kwargs = {
             "play": False,
-            "directory": str(self._capture_dir)
+            "directory": str(self._capture_dir),
+            "filename": f"document.jpg"
         }
 
         if platform == "android":
