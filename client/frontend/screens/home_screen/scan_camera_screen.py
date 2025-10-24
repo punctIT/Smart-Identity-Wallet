@@ -13,12 +13,13 @@ from kivy.graphics import PushMatrix, PopMatrix, Rotate
 from kivy.uix.label import Label
 from kivy.uix.widget import Widget
 from kivy.clock import Clock
-from kivy.uix.camera import Camera
 
 from kivymd.uix.boxlayout import MDBoxLayout
 from kivymd.uix.button import MDIconButton
 from kivymd.uix.label import MDLabel
 from kivymd.uix.screen import MDScreen
+
+from kivy_garden.xcamera.xcamera import XCamera
 
 from frontend.screens.widgets.custom_alignment import Alignment
 
@@ -50,7 +51,7 @@ class CameraScanScreen(MDScreen, Alignment):
     def __init__(self, server=None, **kwargs):
         super().__init__(name="camera_scan", **kwargs)
         self.server = server
-        self.camera_view: Optional[Camera] = None
+        self.camera_view: Optional[XCamera] = None
         self.camera_holder: Optional[MDBoxLayout] = None
         self._camera_error_label: Optional[Label] = None
         self._awaiting_permission = False
@@ -232,17 +233,19 @@ class CameraScanScreen(MDScreen, Alignment):
             Logger.warning("CameraScanScreen: No permissions in result")
             return
         
+        # Use Clock.schedule_once to ensure UI updates happen on main thread
         if all(grants):
             Logger.info("CameraScanScreen: All permissions granted, initializing camera")
             self._awaiting_permission = False
-            self._init_camera_widget()
+            Clock.schedule_once(lambda dt: self._init_camera_widget(), 0)
         else:
             denied = [str(p) for p, granted in zip(permissions, grants) if not granted]
             Logger.warning(f"CameraScanScreen: Permission(s) denied: {denied}")
-            self._show_camera_error(
+            error_msg = (
                 "Permisiunea pentru cameră/stocare a fost refuzată.\n\n"
                 "Pentru a folosi camera, activează permisiunile în Setări > Aplicații > Smart ID Wallet > Permisiuni."
             )
+            Clock.schedule_once(lambda dt: self._show_camera_error(error_msg), 0)
 
     # ------------------------------------------------------------------
     # Camera
@@ -261,7 +264,10 @@ class CameraScanScreen(MDScreen, Alignment):
         self._capture_dir = self._build_capture_dir()
         Logger.info(f"CameraScanScreen: Using capture directory: {self._capture_dir}")
         
-        camera_kwargs = {"play": False}
+        camera_kwargs = {
+            "play": False,
+            "directory": str(self._capture_dir)
+        }
 
         if platform == "android":
             index = self._select_primary_camera_index()
@@ -270,10 +276,10 @@ class CameraScanScreen(MDScreen, Alignment):
                 self._camera_index = index
                 camera_kwargs["index"] = index
 
-        Logger.info(f"CameraScanScreen: Creating Kivy Camera with kwargs: {camera_kwargs}")
+        Logger.info(f"CameraScanScreen: Creating XCamera with kwargs: {camera_kwargs}")
         try:
-            camera = Camera(**camera_kwargs)
-            Logger.info("CameraScanScreen: Kivy Camera created successfully")
+            camera = XCamera(**camera_kwargs)
+            Logger.info("CameraScanScreen: XCamera created successfully")
         except Exception as exc:
             Logger.error(f"CameraScanScreen: Unable to initialise camera: {exc}")
             import traceback
@@ -283,6 +289,8 @@ class CameraScanScreen(MDScreen, Alignment):
 
         # Setup camera display properties
         camera.size_hint = (1, 1)
+        camera.allow_stretch = True
+        camera.keep_ratio = True
 
         # Rotirea 90° stânga pentru Android
         if platform == "android":
@@ -298,7 +306,27 @@ class CameraScanScreen(MDScreen, Alignment):
 
             camera.bind(pos=_update_origin, size=_update_origin)
 
+        # Bind XCamera photo capture callback
+        def on_picture(_, filepath):
+            Logger.info(f"CameraScanScreen: Photo saved -> {filepath}")
+            print(f"[Camera] photo saved -> {filepath}", flush=True)
+            
+            # Notify Android media scanner if available
+            if platform == "android" and MediaScannerConnection:
+                try:
+                    ctx = PythonActivity.mActivity
+                    MediaScannerConnection.scanFile(ctx, [filepath], None, None)
+                except Exception as e:
+                    Logger.warning(f"CameraScanScreen: Failed to notify media scanner: {e}")
+            
+            # Use Clock.schedule_once to ensure UI updates happen on main thread
+            Clock.schedule_once(lambda dt: self._on_capture_completed(Path(filepath)), 0)
+
+        camera.bind(on_picture_taken=on_picture)
+
         self.camera_view = camera
+        self._ensure_android_capture_backend()
+        self._remove_default_capture_button()
         self.camera_holder.add_widget(self.camera_view)
 
         # Clear any existing error messages
@@ -379,16 +407,105 @@ class CameraScanScreen(MDScreen, Alignment):
                 pass
         return 0 if cam_count > 0 else None
 
-    # XCamera backend methods removed - not needed for Kivy Camera
+    def _ensure_android_capture_backend(self) -> None:
+        """Force XCamera to use native Android picture backend (and set EXIF rotation)."""
+        if platform != "android":
+            return
+        try:
+            from importlib import import_module
+
+            platform_api = import_module("kivy_garden.xcamera.platform_api")
+            android_api = import_module("kivy_garden.xcamera.android_api")
+            xcamera_module = import_module("kivy_garden.xcamera.xcamera")
+        except ImportError:
+            Logger.warning("CameraScanScreen: Could not import xcamera backend modules.")
+            return
+
+        android_take_picture = getattr(android_api, "take_picture", None)
+        if callable(android_take_picture):
+            # patch rotation once (optional, guards against multiple wraps)
+            if not getattr(android_api, "_smartid_rotation_patch", False):
+                original_take_picture = android_take_picture
+
+                def rotated_take_picture(camera_widget, filename, on_success):
+                    android_camera = getattr(getattr(camera_widget, "_camera", None), "_android_camera", None)
+                    if android_camera:
+                        try:
+                            params = android_camera.getParameters()
+                            params.setRotation(90)
+                            android_camera.setParameters(params)
+                        except Exception as exc:  # noqa: BLE001
+                            Logger.warning(f"CameraScanScreen: unable to adjust camera rotation: {exc}")
+                    return original_take_picture(camera_widget, filename, on_success)
+
+                android_api._smartid_rotation_patch = True
+                android_api.take_picture = rotated_take_picture
+
+            platform_api.take_picture = android_api.take_picture
+            xcamera_module.take_picture = android_api.take_picture
 
     # ------------------------------------------------------------------
     # Direct navigation back after photo capture
     # ------------------------------------------------------------------
     def _on_capture_completed(self, filepath: Path) -> None:
-        """Called after photo is captured - navigate directly back to previous screen."""
-        Logger.info(f"CameraScanScreen: Photo capture completed, navigating back")
+        """Called after XCamera fires on_picture_taken - navigate to OCR processing screen."""
+        Logger.info(f"CameraScanScreen: Photo capture completed: {filepath}")
         
-        # Navigate directly back to previous screen without any dialogs or delays
+        # Reset capture state
+        self._capture_in_progress = False
+        if self.capture_button:
+            self.capture_button.disabled = False
+        
+        # Navigate to OCR processing screen with the captured image
+        self._navigate_to_ocr_screen(str(filepath))
+
+    def _navigate_to_ocr_screen(self, image_path: str) -> None:
+        """Navigate to OCR processing screen with the captured image."""
+        manager = getattr(self, "manager", None)
+        if not manager:
+            Logger.error("CameraScanScreen: No screen manager available")
+            return
+            
+        # Check if OCR processing screen exists, if not create it
+        if not manager.has_screen("ocr_processing"):
+            try:
+                from frontend.screens.ocr_processing_screen import OCRProcessingScreen
+                ocr_screen = OCRProcessingScreen(server=self.server)
+                manager.add_widget(ocr_screen)
+                Logger.info("CameraScanScreen: Created OCR processing screen")
+            except ImportError as e:
+                Logger.error(f"CameraScanScreen: Could not import OCR processing screen: {e}")
+                # Fallback: go back to previous screen and delete image
+                self._cleanup_and_go_back(image_path)
+                return
+        
+        # Set the image path and navigate to OCR screen
+        try:
+            ocr_screen = manager.get_screen("ocr_processing")
+            ocr_screen.set_image_path(image_path)
+            
+            # Set transition direction
+            if hasattr(manager, "transition"):
+                manager.transition.direction = "left"
+            
+            manager.current = "ocr_processing"
+            Logger.info(f"CameraScanScreen: Navigated to OCR processing screen with image: {image_path}")
+            
+        except Exception as e:
+            Logger.error(f"CameraScanScreen: Failed to navigate to OCR screen: {e}")
+            # Fallback: go back and cleanup
+            self._cleanup_and_go_back(image_path)
+
+    def _cleanup_and_go_back(self, image_path: str) -> None:
+        """Cleanup image and navigate back as fallback."""
+        try:
+            filepath = Path(image_path)
+            if filepath.exists():
+                filepath.unlink()
+                Logger.info(f"CameraScanScreen: Cleaned up image: {image_path}")
+        except Exception as e:
+            Logger.warning(f"CameraScanScreen: Failed to cleanup image: {e}")
+        
         self._go_back()
 
     # All dialog and popup methods removed for direct navigation
@@ -456,11 +573,24 @@ class CameraScanScreen(MDScreen, Alignment):
     def _retry_permissions(self):
         """Manually retry permission request."""
         Logger.info("CameraScanScreen: Manual permission retry requested")
-        self.camera_holder.clear_widgets()
+        if self.camera_holder:
+            self.camera_holder.clear_widgets()
         self._awaiting_permission = False
-        self._ensure_camera_ready()
+        Clock.schedule_once(lambda dt: self._ensure_camera_ready(), 0)
 
-    # Kivy Camera doesn't have default capture buttons - method removed
+    def _remove_default_capture_button(self) -> None:
+        """Remove the stock XCamera capture button so our custom control is the only one."""
+        if not self.camera_view:
+            return
+        
+        # Disable default controls
+        if hasattr(self.camera_view, 'show_controls'):
+             self.camera_view.show_controls = False
+             
+        # Manual removal as fallback
+        shoot_button = getattr(self.camera_view, "ids", {}).get("shoot_button") if hasattr(self.camera_view, "ids") else None
+        if shoot_button and shoot_button.parent:
+            shoot_button.parent.remove_widget(shoot_button)
 
     def _dispose_camera(self) -> None:
         """Release current camera widget and reset state."""
@@ -490,31 +620,17 @@ class CameraScanScreen(MDScreen, Alignment):
             self._show_camera_error("Camera indisponibilă.")
             return
 
-        Logger.info("CameraScanScreen: capture requested, taking photo.")
+        Logger.info("CameraScanScreen: capture requested, shooting photo.")
         print("[Camera] capture requested", flush=True)
         self._capture_in_progress = True
         if self.capture_button:
             self.capture_button.disabled = True # Dezactivăm imediat butonul
 
         try:
-            # Generate unique filename
-            timestamp = int(time.time())
-            filename = f"photo_{timestamp}.png"
-            if self._capture_dir:
-                filepath = self._capture_dir / filename
-            else:
-                filepath = Path(App.get_running_app().user_data_dir) / filename
-            
-            Logger.info(f"CameraScanScreen: Saving photo to {filepath}")
-            
-            # Use Kivy Camera's export_to_png method
-            self.camera_view.export_to_png(str(filepath))
-            
-            # Simulate photo taken callback after a short delay to ensure file is written
-            Clock.schedule_once(lambda dt: self._on_photo_saved(filepath), 0.5)
-            
+            # XCamera will call on_picture_taken callback when done
+            self.camera_view.shoot() 
         except Exception as exc:
-            Logger.error(f"CameraScanScreen: Failed to capture photo: {exc}")
+            Logger.error(f"CameraScanScreen: Failed to shoot photo: {exc}")
             print(f"[Camera] capture failed: {exc}", flush=True)
             self._capture_in_progress = False
             if self.capture_button:
@@ -522,26 +638,7 @@ class CameraScanScreen(MDScreen, Alignment):
             self._show_camera_error(f"Eroare la capturarea fotografiei: {str(exc)}")
             return
     
-    def _on_photo_saved(self, filepath: Path) -> None:
-        """Called after photo is saved to handle completion."""
-        Logger.info(f"CameraScanScreen: Photo saved -> {filepath}")
-        print(f"[Camera] photo saved -> {filepath}", flush=True)
-        
-        # Notify Android media scanner if available
-        if platform == "android" and MediaScannerConnection:
-            try:
-                ctx = PythonActivity.mActivity
-                MediaScannerConnection.scanFile(ctx, [str(filepath)], None, None)
-            except Exception as e:
-                Logger.warning(f"CameraScanScreen: Failed to notify media scanner: {e}")
-        
-        # Reset capture state and go back
-        self._capture_in_progress = False
-        if self.capture_button:
-            self.capture_button.disabled = False
-            
-        # Navigate back to previous screen
-        self._on_capture_completed(filepath)
+    # _on_photo_saved removed - using XCamera's on_picture_taken callback instead
 
     def _go_back(self) -> None:
         manager = getattr(self, "manager", None)
