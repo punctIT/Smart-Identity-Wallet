@@ -23,6 +23,7 @@ from frontend.screens.settings.account_info_screen import AccountInfoScreen
 from frontend.screens.settings.security_screen import SecurityScreen
 from frontend.screens.photo_success_screen import PhotoSuccessScreen
 from frontend.screens.processing_screen import ProcessingScreen
+from frontend.screens.ocr_processing_screen import OCRProcessingScreen
 
 
 if platform == "android":
@@ -115,6 +116,7 @@ class SmartIdApp(MDApp):
         sm.add_widget(TransportDocsScreen(self.server))
         sm.add_widget(DiverseDocsScreen(self.server))
         sm.add_widget(CameraScanScreen(self.server))
+        sm.add_widget(OCRProcessingScreen(self.server))
         sm.add_widget(PhotoSuccessScreen())
         sm.add_widget(ProcessingScreen())
         sm.add_widget(ChatScreen(self.server))

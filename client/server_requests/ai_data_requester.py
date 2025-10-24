@@ -36,12 +36,13 @@ class AI_DataRequester:
         except Exception as e:
             print(f"❌ Eroare: {str(e)}")
             return None
-    def sent_OCR_image(self, img_path):
+    def sent_OCR_image(self, img_path, delete_after=True):
         """
-        Convert image to base64, send to server for OCR processing, then delete the original file.
+        Convert image to base64, send to server for OCR processing, optionally delete the original file.
         
         Args:
             img_path (str or Path): Path to the image file to process
+            delete_after (bool): Whether to delete the original file after successful upload
             
         Returns:
             dict or None: Server response data if successful, None if failed
@@ -81,14 +82,15 @@ class AI_DataRequester:
                 Logger.info(f"AI_DataRequester: OCR request successful")
                 print(f"✅ OCR Success: {data.get('success', 'Processed successfully')}")
                 
-                # Delete the original image file after successful upload
-                try:
-                    os.remove(img_path)
-                    Logger.info(f"AI_DataRequester: Deleted original image: {img_path}")
-                    print(f"🗑️ Imagine ștearsă: {img_path.name}")
-                except OSError as delete_error:
-                    Logger.warning(f"AI_DataRequester: Could not delete image {img_path}: {delete_error}")
-                    print(f"⚠️ Nu s-a putut șterge imaginea: {delete_error}")
+                # Delete the original image file after successful upload if requested
+                if delete_after:
+                    try:
+                        os.remove(img_path)
+                        Logger.info(f"AI_DataRequester: Deleted original image: {img_path}")
+                        print(f"🗑️ Imagine ștearsă: {img_path.name}")
+                    except OSError as delete_error:
+                        Logger.warning(f"AI_DataRequester: Could not delete image {img_path}: {delete_error}")
+                        print(f"⚠️ Nu s-a putut șterge imaginea: {delete_error}")
                 
                 return data
             else:
