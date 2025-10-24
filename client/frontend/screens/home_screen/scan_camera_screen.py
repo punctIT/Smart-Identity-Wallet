@@ -448,15 +448,47 @@ class CameraScanScreen(MDScreen, Alignment):
     # Direct navigation back after photo capture
     # ------------------------------------------------------------------
     def _on_capture_completed(self, filepath: Path) -> None:
-        """Called after XCamera fires on_picture_taken - navigate directly back to previous screen."""
-        Logger.info(f"CameraScanScreen: Photo capture completed, navigating back")
+        """Called after XCamera fires on_picture_taken - send to OCR and navigate back."""
+        Logger.info(f"CameraScanScreen: Photo capture completed: {filepath}")
         
         # Reset capture state
         self._capture_in_progress = False
         if self.capture_button:
             self.capture_button.disabled = False
         
-        # Navigate directly back to previous screen without any dialogs or delays
+        # Send image for OCR processing if server connection is available
+        if self.server and hasattr(self.server, 'sent_OCR_image'):
+            Logger.info(f"CameraScanScreen: Sending image for OCR processing: {filepath}")
+            try:
+                # Send image for OCR processing (this will also delete the file)
+                ocr_result = self.server.sent_OCR_image(str(filepath))
+                if ocr_result:
+                    Logger.info(f"CameraScanScreen: OCR processing successful")
+                    print(f"📄 OCR Result: {ocr_result}")
+                else:
+                    Logger.warning(f"CameraScanScreen: OCR processing failed")
+                    print(f"❌ OCR processing failed")
+            except Exception as e:
+                Logger.error(f"CameraScanScreen: Error during OCR processing: {e}")
+                print(f"❌ OCR Error: {e}")
+                # If OCR fails, try to delete the image manually
+                try:
+                    if filepath.exists():
+                        filepath.unlink()
+                        Logger.info(f"CameraScanScreen: Manually deleted image after OCR failure")
+                except Exception as delete_error:
+                    Logger.warning(f"CameraScanScreen: Failed to delete image after OCR failure: {delete_error}")
+        else:
+            Logger.warning(f"CameraScanScreen: No server connection available for OCR")
+            # If no server connection, just delete the image
+            try:
+                if filepath.exists():
+                    filepath.unlink()
+                    Logger.info(f"CameraScanScreen: Deleted image (no OCR available)")
+            except Exception as delete_error:
+                Logger.warning(f"CameraScanScreen: Failed to delete image: {delete_error}")
+        
+        # Navigate directly back to previous screen
         self._go_back()
 
     # All dialog and popup methods removed for direct navigation
