@@ -131,11 +131,19 @@ class SmartIdApp(MDApp):
     def on_start(self):
         super().on_start()
         if platform == "android":
-            request_permissions([
-                Permission.CAMERA,
-                Permission.READ_EXTERNAL_STORAGE,
-                Permission.WRITE_EXTERNAL_STORAGE,
-            ])
+            permissions_to_request = [Permission.CAMERA]
+            
+            # For Android 13+ (API 33+), we need READ_MEDIA_IMAGES instead of READ_EXTERNAL_STORAGE
+            if hasattr(Permission, 'READ_MEDIA_IMAGES'):
+                permissions_to_request.append(Permission.READ_MEDIA_IMAGES)
+            else:
+                # Fallback for older Android versions
+                permissions_to_request.extend([
+                    Permission.READ_EXTERNAL_STORAGE,
+                    Permission.WRITE_EXTERNAL_STORAGE,
+                ])
+            
+            request_permissions(permissions_to_request)
     
     def _on_key_down(self, window, key, scancode, codepoint, modifier):
         if key == 274: 
