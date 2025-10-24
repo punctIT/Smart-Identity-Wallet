@@ -4,7 +4,7 @@ use axum::{
     response::Json,
 };
 use chrono::Utc;
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::sync::Arc;
 
 use crate::handle_requests::info_data_requests::news_data_requests::NewsData;
@@ -37,6 +37,9 @@ impl DataRequestHandler {
             "InsertInsuranceAuto" => {
                 WalletCards::insert("insurance_auto", &request, app_state).await
             }
+            "logout" => {
+                DataRequestHandler::logout(&request, app_state).await
+            }
             "GetInsuranceAuto" => WalletCards::get("insurance_auto", &request, app_state).await,
             "GetWalletCards" => PersonalDataManager::check_all_cards(&request, app_state).await,
             "GetWalletAuto" => PersonalDataManager::check_all_auto_data(&request, app_state).await,
@@ -54,5 +57,11 @@ impl DataRequestHandler {
     }
     async fn unknown() -> (bool, Value) {
         ResponseHandler::standard_error(String::from("unknown request"))
+    }
+    async fn logout(
+        request: &MessageRequest,
+        app_state: Arc<AppState>,
+    ) -> (bool, Value) {
+        (app_state.session_manager.logout(&request.user_id),json!(""))
     }
 }

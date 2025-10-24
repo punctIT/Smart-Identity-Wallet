@@ -8,6 +8,7 @@ pub struct MessageRequest {
     pub content: Option<Value>,
 }
 
+
 #[derive(Serialize)]
 pub struct MessageResponse {
     pub success: bool,

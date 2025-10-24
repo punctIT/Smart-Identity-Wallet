@@ -37,10 +37,12 @@ Window.clearcolor = BG_BOTTOM
 
 
 class LoginScreen(Screen,CustomLabels,CustomButton,CustomInput,Alignment):
+    def on_enter(self, *args):
+        self.server.log_out()
+        return super().on_enter(*args)
     def __init__(self, server=None, **kwargs):
         super().__init__(name='login', **kwargs)
         self.server = server
-
         # Background gradient
         self.bg = GradientBackground()
         self.add_widget(self.bg)

@@ -40,7 +40,9 @@ class ServerConnection(Label,DataRequester,AuthRequester,AI_DataRequester):
         except Exception as e:
             self.last_message = f"❌ Eroare conexiune: {str(e)}"
             return None
-    
+    def clear_data(self):
+        self.token=""
+        self.user_id=""
     def start_periodic_check(self, interval=5):
         def check_server():
             while True:
