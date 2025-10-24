@@ -67,7 +67,7 @@ class SwipeScreenManager(ScreenManager):
                         self.transition.direction = 'right'
                         self.current = 'settings'
                         return True
-                    if self.current == 'security':
+                    if self.current == 'security' or self.current=='account_info':
                         self.transition.direction = 'right'
                         self.current = 'settings'
                         return True
@@ -81,7 +81,7 @@ class SwipeScreenManager(ScreenManager):
                             self.transition.direction = 'left'
                             self.current = 'home'
                             return True
-                    if self.current == 'account_info':
+                    if self.current == 'account_info' or self.current=='account_info':
                         self.transition.direction = 'left'
                         self.current = 'settings'
                         return True
