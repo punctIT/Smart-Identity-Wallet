@@ -10,7 +10,7 @@ impl AiRequests {
     pub async fn handle_ai_reqsuest(
         ExtractJson(request): ExtractJson<MessageRequest>,
     ) -> Json<MessageResponse> {
-        println!("📨 Request primit: {:?}", request);
+        println!("📨 AI Request primit: {:?}", request);
         let (success, data) = match request.message_type.as_str() {
             "ChatBot" => AiRequests::call_python_chat(&request).await,
             "OCR" => AiRequests::call_python_ocr(&request).await,
@@ -48,7 +48,7 @@ impl AiRequests {
 
     pub async fn call_python_ocr(request: &MessageRequest) -> (bool, Value) {
         let client = Client::new();
-
+        println!("aici ceva");
         let response = match client
             .post("http://localhost:8001/ocr")
             .json(&request)
@@ -61,7 +61,7 @@ impl AiRequests {
 
         let chat_response: Value = response.json().await.unwrap();
 
-        println!("{:?}", chat_response);
+        //println!("{:?}", chat_response);
 
         (true, chat_response)
     }
@@ -72,8 +72,11 @@ impl AiRequests {
             Ok(re) => re,
             Err(e) => return ResponseHandler::standard_error(e.to_string()),
         };
-        let health_response: String = response.json().await.unwrap();
 
+        let health_response: String = match response.json().await{
+            Ok(e)=>e,
+            Err(_)=>return ResponseHandler::standard_error(String::from("unknown request")),
+        };
         (true, json!(health_response))
     }
     async fn unknown() -> (bool, Value) {

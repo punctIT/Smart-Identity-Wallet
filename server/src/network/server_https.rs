@@ -14,7 +14,7 @@ use crate::data_manager::database_manager::DBManager;
 use crate::handle_requests::cripto_manager::CryptoManager;
 use crate::network::middleware::auth_middleware;
 use crate::{
-    handle_requests::auth_requests::{AuthRequestHandler},
+    handle_requests::auth_requests::AuthRequestHandler,
     handle_requests::data_requests::DataRequestHandler, network::auth::SessionManager,
 };
 
@@ -62,7 +62,6 @@ impl HTTPServer {
             .route("/health", get(Self::health_check))
             .route("/login", post(AuthRequestHandler::handle_login))
             .route("/register", post(AuthRequestHandler::handle_register))
-            
             .with_state(app_state.clone());
 
         let protected_routes = Router::new()
