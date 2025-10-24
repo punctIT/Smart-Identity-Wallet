@@ -120,7 +120,12 @@ class CameraScanScreen(MDScreen, Alignment):
     # ------------------------------------------------------------------
     def on_pre_enter(self, *_):
         super().on_pre_enter()
+        Logger.info("CameraScanScreen: Entering camera screen")
+        
+        # Force permission check and camera setup
+        self._awaiting_permission = False  # Reset state
         self._ensure_camera_ready()
+        
         # Bind app lifecycle events pentru Android
         if platform == "android":
             app = App.get_running_app()
@@ -190,57 +195,95 @@ class CameraScanScreen(MDScreen, Alignment):
     # Permissions + camera setup
     # ------------------------------------------------------------------
     def _ensure_camera_ready(self) -> None:
+        Logger.info("CameraScanScreen: Checking camera permissions and setup")
+        
         if platform == "android" and Permission and request_permissions and check_permission:
             needed = [Permission.CAMERA]
-            read_images = getattr(Permission, "READ_MEDIA_IMAGES", None)
-            if read_images:
-                needed.append(read_images)
-            # fallback for older APIs
-            if hasattr(Permission, "WRITE_EXTERNAL_STORAGE"):
-                needed.append(Permission.WRITE_EXTERNAL_STORAGE)
+            
+            # For Android 13+ (API 33+), we need READ_MEDIA_IMAGES instead of older storage permissions
+            if hasattr(Permission, "READ_MEDIA_IMAGES"):
+                needed.append(Permission.READ_MEDIA_IMAGES)
+                Logger.info("CameraScanScreen: Using READ_MEDIA_IMAGES for Android 13+")
+            else:
+                # Fallback for older APIs
+                if hasattr(Permission, "WRITE_EXTERNAL_STORAGE"):
+                    needed.append(Permission.WRITE_EXTERNAL_STORAGE)
+                if hasattr(Permission, "READ_EXTERNAL_STORAGE"):  
+                    needed.append(Permission.READ_EXTERNAL_STORAGE)
+                Logger.info("CameraScanScreen: Using legacy storage permissions")
 
+            Logger.info(f"CameraScanScreen: Checking permissions: {[str(p) for p in needed]}")
             granted = all(check_permission(p) for p in needed)
+            
             if not granted:
+                missing = [str(p) for p in needed if not check_permission(p)]
+                Logger.info(f"CameraScanScreen: Missing permissions: {missing}")
+                
                 if not self._awaiting_permission:
                     self._awaiting_permission = True
+                    Logger.info("CameraScanScreen: Requesting permissions...")
                     request_permissions(needed, self._on_permission_result)
                 return
+            else:
+                Logger.info("CameraScanScreen: All permissions granted")
 
         self._awaiting_permission = False
         self._init_camera_widget()
 
     def _on_permission_result(self, permissions, grants):
+        Logger.info(f"CameraScanScreen: Permission result - permissions: {permissions}, grants: {grants}")
+        
         if not permissions:
+            Logger.warning("CameraScanScreen: No permissions in result")
             return
+            
         if all(grants):
+            Logger.info("CameraScanScreen: All permissions granted, initializing camera")
             self._awaiting_permission = False
             self._init_camera_widget()
-            # Camera este pornită deja în _init_camera_widget
         else:
-            Logger.warning("CameraScanScreen: Camera/storage permission denied.")
-            self._show_camera_error("Permisiunea pentru cameră/stocare a fost refuzată.")
+            denied = [str(p) for p, granted in zip(permissions, grants) if not granted]
+            Logger.warning(f"CameraScanScreen: Permission(s) denied: {denied}")
+            self._show_camera_error(
+                "Permisiunea pentru cameră/stocare a fost refuzată.\n\n"
+                "Pentru a folosi camera, activează permisiunile în Setări > Aplicații > Smart ID Wallet > Permisiuni."
+            )
 
     # ------------------------------------------------------------------
     # Camera
     # ------------------------------------------------------------------
     def _init_camera_widget(self) -> None:
-        if not self.camera_holder or self.camera_view:
+        Logger.info("CameraScanScreen: Initializing camera widget")
+        
+        if not self.camera_holder:
+            Logger.error("CameraScanScreen: No camera holder available")
             return
+            
+        if self.camera_view:
+            Logger.info("CameraScanScreen: Camera already exists, disposing first")
+            self._dispose_camera()
 
         capture_dir = self._build_capture_dir()
+        Logger.info(f"CameraScanScreen: Using capture directory: {capture_dir}")
+        
         camera_kwargs = {"play": False, "directory": str(capture_dir)}
 
         if platform == "android":
             index = self._select_primary_camera_index()
+            Logger.info(f"CameraScanScreen: Selected camera index: {index}")
             if index is not None:
                 self._camera_index = index
                 camera_kwargs["index"] = index
 
+        Logger.info(f"CameraScanScreen: Creating XCamera with kwargs: {camera_kwargs}")
         try:
             camera = XCamera(**camera_kwargs)
+            Logger.info("CameraScanScreen: XCamera created successfully")
         except Exception as exc:
             Logger.error(f"CameraScanScreen: Unable to initialise camera: {exc}")
-            self._show_camera_error("Camera indisponibilă.\nVerifică permisiunile sau conectează o cameră.")
+            import traceback
+            Logger.error(f"CameraScanScreen: Full traceback: {traceback.format_exc()}")
+            self._show_camera_error(f"Camera indisponibilă.\nEroare: {str(exc)}\n\nVerifică permisiunile sau conectează o cameră.")
             return
 
         # MODIFICARE: Aplicăm rotația imediat, înainte de a adăuga la layout
@@ -508,23 +551,69 @@ class CameraScanScreen(MDScreen, Alignment):
     # Error + navigation
     # ------------------------------------------------------------------
     def _show_camera_error(self, message: str) -> None:
+        Logger.info(f"CameraScanScreen: Showing camera error: {message}")
         if not self.camera_holder:
             return
-        if self._camera_error_label is None:
-            self._camera_error_label = Label(
-                text=message,
-                halign="center",
-                valign="middle",
-                color=(0.95, 0.35, 0.35, 1),
-                size_hint=(0.9, 0.9),
+            
+        # Clear existing error widgets
+        self.camera_holder.clear_widgets()
+        
+        # Create error container
+        error_container = MDBoxLayout(
+            orientation="vertical",
+            spacing=dp(16),
+            size_hint=(0.9, 0.9),
+            pos_hint={'center_x': 0.5, 'center_y': 0.5}
+        )
+        
+        # Error message
+        error_label = Label(
+            text=message,
+            halign="center", 
+            valign="middle",
+            color=(0.95, 0.35, 0.35, 1),
+            size_hint_y=None,
+            height=dp(120)
+        )
+        error_label.bind(size=lambda lbl, s: setattr(lbl, "text_size", s))
+        error_container.add_widget(error_label)
+        
+        # Retry button for permissions
+        if "permis" in message.lower():
+            retry_btn = MDIconButton(
+                icon="refresh",
+                theme_icon_color="Custom",
+                icon_color=(0.25, 0.60, 1.00, 1),
+                size_hint=(None, None),
+                size=(dp(48), dp(48)),
+                pos_hint={'center_x': 0.5},
+                on_release=lambda *_: self._retry_permissions()
             )
-            self._camera_error_label.bind(size=lambda lbl, s: setattr(lbl, "text_size", s))
-        if not self._camera_error_label.parent:
-            self.camera_holder.add_widget(self._camera_error_label)
+            error_container.add_widget(retry_btn)
+            
+            retry_label = Label(
+                text="Apasă pentru a încerca din nou",
+                halign="center",
+                color=(0.7, 0.7, 0.7, 1),
+                size_hint_y=None,
+                height=dp(30),
+                font_size=dp(12)
+            )
+            error_container.add_widget(retry_label)
+        
+        self.camera_holder.add_widget(error_container)
+        
         if self.capture_button:
             self.capture_button.disabled = True
         self._capture_in_progress = False
         self._cancel_processing_flow()
+    
+    def _retry_permissions(self):
+        """Manually retry permission request."""
+        Logger.info("CameraScanScreen: Manual permission retry requested")
+        self.camera_holder.clear_widgets()
+        self._awaiting_permission = False
+        self._ensure_camera_ready()
 
     def _remove_default_capture_button(self) -> None:
         """Remove the stock XCamera capture button so our custom control is the only one."""
