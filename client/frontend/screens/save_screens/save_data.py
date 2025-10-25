@@ -33,7 +33,6 @@ import base64
 import json
 
 ASSETS_DIR = Path(__file__).parent.parent / "assets"
-#LOGO_PATH = ASSETS_DIR / "test.png"
 LOGO_PATH = "/storage/emulated/0/Pictures/SmartID/document.jpg"
 
 def image_to_base64(image_path: str) -> str:
@@ -50,12 +49,9 @@ def image_to_base64(image_path: str) -> str:
         FileNotFoundError: If image file is not found
     """
     try:
-        # ------------------------------------
-        # Here is where the image is read
         with open(image_path, 'rb') as image_file:
             image_data = image_file.read()
         
-        # Encode to base64
         base64_string = base64.b64encode(image_data).decode('utf-8')
         
         return base64_string
@@ -77,7 +73,7 @@ class SaveScreen(Screen):
         self.image_path: Optional[str] = None
         self.ocr_data: Optional[Dict[str, Any]] = None
         self.processing = False
-        self.mode = "document_list"  # "document_list" or "ocr_processing"
+        self.mode = "document_list"
         
         # Main layout
         self.main_layout = MDBoxLayout(orientation='vertical', padding=dp(20), spacing=dp(15))
@@ -146,7 +142,7 @@ class SaveScreen(Screen):
             width_mult=4,
         )
         
-        # Loading layout (initially hidden)
+        # Loading layout
         self.loading_layout = MDBoxLayout(
             orientation='vertical',
             size_hint=(1, 1),
@@ -208,6 +204,7 @@ class SaveScreen(Screen):
         self.add_widget(self.main_layout)
         
     def on_enter(self, *args):
+        """Called when entering the screen"""
         # Show loading screen
         self.show_loading(True)
         
@@ -239,8 +236,8 @@ class SaveScreen(Screen):
     def process_ocr(self):
         """Process OCR in background thread"""
         try:
-            # Use the image path set by camera screen or fallback to LOGO_PATH
-            image_path_to_use = LOGO_PATH
+            # ✅ MODIFICAT: Folosește image_path setată de camera sau fallback
+            image_path_to_use = self.image_path if self.image_path else LOGO_PATH
             
             # Check if the file exists
             if not Path(image_path_to_use).exists():
@@ -252,7 +249,7 @@ class SaveScreen(Screen):
             # Convert image to base64 and send to server
             img = image_to_base64(image_path_to_use)
             data = self.server.sent_OCR_image(img)
-            print(data)
+            print(f"📥 [SaveScreen] OCR Response: {data}", flush=True)
             
             # Schedule UI update on main thread
             if data and data.get('success') and 'data' in data:
@@ -265,7 +262,7 @@ class SaveScreen(Screen):
                 
         except Exception as e:
             Logger.error(f"SaveScreen: Error in process_ocr: {e}")
-            err_msg = str(e)  # ⚡ Salvează mesajul local
+            err_msg = str(e)
             Clock.schedule_once(lambda dt: self.on_ocr_error(err_msg), 0)
             
     def on_ocr_complete(self, result_dict):
@@ -308,13 +305,16 @@ class SaveScreen(Screen):
         self.dropdown_button.text = data_type
         self.dropdown_menu.dismiss()
         Logger.info(f"SaveScreen: Data type set to {data_type}")
-    def get_entrypoint(self,text):
-        if text=='ID Card':
+        
+    def get_entrypoint(self, text):
+        """Get API entrypoint based on document type"""
+        if text == 'ID Card':
             return "InsertIdenityCard"
-        if text=='Passport':
+        if text == 'Passport':
             return "InsertPassport"
-        if text=='Driver License':
+        if text == 'Driver License':
             return "InsertDrivingLicense"
+        return "InsertOtherDocument"
             
     def get_empty_fields_for_type(self):
         """Get empty fields template based on selected data type"""
@@ -427,42 +427,76 @@ class SaveScreen(Screen):
         Logger.info(f"SaveScreen: Displayed data: {collected_data}")
         return collected_data
     
-    def clean_data(self,data):
-        # Exemplu de curățare pentru fiecare cheie
+    def clean_data(self, data):
+        """Clean and format data before sending to server"""
         cleaned = {}
         for key, value in data.items():
             val = value.strip() if isinstance(value, str) else value
-            if key in ("nr",):  # Dacă e număr
+            
+            # Convert numbers
+            if key in ("nr",):
                 try:
-                    val = int(val)
+                    val = int(val) if val else 0
                 except Exception:
-                    pass
+                    val = 0
+            
+            # Format expiration date
             if key == "expiration_date":
-                # Formatare exemplu: din "120522" -> "2022-05-12"
                 if len(val) == 6 and val.isdigit():
                     day, month, year = val[:2], val[2:4], "20" + val[4:]
                     val = f"{year}-{month}-{day}"
+            
             cleaned[key] = val
         return cleaned
+    
     def save_data(self, *args):
         """Save all data from input fields as JSON"""
-        import json
-        collected_data = {}
-        for key, text_field in self.input_fields.items():
-            collected_data[key] = text_field.text
+        try:
+            # ✅ MODIFICAT: Colectează datele corect
+            collected_data = {}
+            for key, text_field in self.input_fields.items():
+                collected_data[key] = text_field.text
 
-        # Curățare date
-        collected_data = self.clean_data(collected_data)
+            print(f"📝 [SaveScreen] Raw collected data: {collected_data}", flush=True)
 
-        # Convert to JSON string
-        json_data = json.dumps(collected_data, indent=2, ensure_ascii=False)
+            # Curățare date
+            collected_data = self.clean_data(collected_data)
+            
+            print(f"🧹 [SaveScreen] Cleaned data: {collected_data}", flush=True)
 
-        # Trimite la server
-        response = self.server.sent_specific_data(self.get_entrypoint(self.selected_data_type), json_data)
-        print(response)
-        self.manager.current = 'home'
-        print(json_data)
-        print("=" * 50)
+            # ✅ MODIFICAT: Asigură-te că datele sunt trimise ca dict, NU ca string
+            # Serverul așteaptă un dict, nu un JSON string
+            entrypoint = self.get_entrypoint(self.selected_data_type)
+            print(f"📡 [SaveScreen] Sending to entrypoint: {entrypoint}", flush=True)
+            
+            # Trimite datele ca dict
+            response = self.server.sent_specific_data(entrypoint, collected_data)
+            
+            print(f"✅ [SaveScreen] Server response: {response}", flush=True)
+            
+            if response and response.get('success'):
+                Logger.info("SaveScreen: Data saved successfully")
+                print("✅ [SaveScreen] Data saved successfully!", flush=True)
+            else:
+                Logger.error(f"SaveScreen: Failed to save data: {response}")
+                print(f"❌ [SaveScreen] Failed to save data: {response}", flush=True)
+            
+            # Navighează înapoi la home
+            self.manager.current = 'home'
+            
+        except Exception as e:
+            Logger.error(f"SaveScreen: Error saving data: {e}")
+            print(f"❌ [SaveScreen] Error saving data: {e}", flush=True)
+            import traceback
+            traceback.print_exc()
+    
+    def on_leave(self, *args):
+        """Called when leaving the screen"""
+        # ✅ NU MAI ȘTERGE POZA! Comentează sau șterge linia care șterge imaginea
+        # Nu mai face: os.remove(self.image_path)
         
-        Logger.info(f"SaveScreen: Saved data as JSON")
-        return json_data
+        # Resetează doar calea, fără a șterge fișierul
+        Logger.info(f"SaveScreen: Leaving screen, image preserved at: {self.image_path}")
+        print(f"✅ [SaveScreen] Image preserved at: {self.image_path}", flush=True)
+        
+        return super().on_leave(*args)
