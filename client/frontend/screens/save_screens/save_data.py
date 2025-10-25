@@ -34,7 +34,7 @@ import json
 
 ASSETS_DIR = Path(__file__).parent.parent / "assets"
 LOGO_PATH = "/storage/emulated/0/Pictures/SmartID/document.jpg"
-
+test_image_path = ASSETS_DIR / "test.png"
 def image_to_base64(image_path: str) -> str:
     """
     Convert an image file to base64 string.
@@ -247,7 +247,7 @@ class SaveScreen(Screen):
             print(f"🔄 [SaveScreen] Processing OCR for: {image_path_to_use}", flush=True)
             
             # Convert image to base64 and send to server
-            img = image_to_base64(image_path_to_use)
+            img = image_to_base64(test_image_path)
             data = self.server.sent_OCR_image(img)
             print(f"📥 [SaveScreen] OCR Response: {data}", flush=True)
             
