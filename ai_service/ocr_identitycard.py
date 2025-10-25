@@ -11,67 +11,16 @@ import os
 
 class IDCardProcessor:
     """
-    A class for processing Romanian ID cards using OCR.
-    Handles image preprocessing, field extraction, and data conversion.
+    Enhanced ID card processor that handles various orientations and image qualities.
+    No aggressive cropping - works with full images.
     """
     
-    # Class constants
-    TARGET_WIDTH = 1000
-    TARGET_HEIGHT = 325
-    
-    # Default crop region (lower half of the image)
-    DEFAULT_CROP_REGION = {
-        'x1': 0, 'y1': 0.477,
-        'x2': 1, 'y2': 0.94
-    }
-    
-    # Default Tesseract configurations for each field
-    DEFAULT_TESS_CONFIG = {
-        "place_of_birth": r'--psm 13 -c tessedit_char_whitelist= abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZăâîșțĂÂÎȘȚ.',
-        "address": r'--psm 13 -c tessedit_char_whitelist= abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZăâîșțĂÂÎȘȚ.',
-        "nume_full": r'--psm 7 -c tessedit_char_whitelist=AĂÂBCDEFGHIÎJKLMNOPQRSȘTȚUVWXYZ< --oem 3',
-        "serie_nr": r'--psm 7 -c tessedit_char_whitelist=0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ< --oem 3',
-        "cnp": r'--psm 7 -c tessedit_char_whitelist=0123456789MF --oem 3'
-    }
-    
-    # Default crop boxes for each field (x1, y1, x2, y2)
-    DEFAULT_CROP_BOXES = {
-        "nume_full": (50, 190, 990, 245),
-        "serie_nr": (50, 240, 265, 290),
-        "place_of_birth": (300, 0, 750, 35),
-        "address": (285, 52, 900, 86),
-        "cnp": (395, 250, 980, 300),
-    }
-    
-    def __init__(self, 
-                 crop_boxes: Optional[Dict] = None,
-                 tess_config: Optional[Dict] = None,
-                 crop_region: Optional[Dict] = None):
-        """
-        Initialize the ID Card Processor.
-        
-        Args:
-            crop_boxes: Dictionary of field crop boxes (x1, y1, x2, y2)
-            tess_config: Dictionary of Tesseract configurations for each field
-            crop_region: Dictionary defining the crop region (x1, y1, x2, y2)
-        """
-        self.crop_boxes = crop_boxes or self.DEFAULT_CROP_BOXES.copy()
-        self.tess_config = tess_config or self.DEFAULT_TESS_CONFIG.copy()
-        self.crop_region = crop_region or self.DEFAULT_CROP_REGION.copy()
+    def __init__(self):
+        """Initialize the ID Card Processor with adaptive settings."""
+        pass
     
     def load_image(self, image_path: str) -> np.ndarray:
-        """
-        Load an image from the specified path.
-        
-        Args:
-            image_path: Path to the image file
-            
-        Returns:
-            Loaded image as numpy array
-            
-        Raises:
-            FileNotFoundError: If image file is not found
-        """
+        """Load an image from the specified path."""
         img = cv2.imread(image_path)
         if img is None:
             raise FileNotFoundError(f"Image not found: {image_path}")
@@ -87,12 +36,9 @@ class IDCardProcessor:
             
         Returns:
             Path to the created image file
-            
-        Raises:
-            ValueError: If base64 string is invalid
         """
         try:
-            # Remove data URL prefix if present (e.g., "data:image/jpeg;base64,")
+            # Remove data URL prefix if present
             if ',' in base64_string:
                 base64_string = base64_string.split(',')[1]
             
@@ -111,7 +57,7 @@ class IDCardProcessor:
             # Generate output path if not provided
             if output_path is None:
                 temp_fd, output_path = tempfile.mkstemp(suffix='.jpg')
-                os.close(temp_fd)  # Close the file descriptor
+                os.close(temp_fd)
             
             # Save as JPG
             cv2.imwrite(output_path, img)
@@ -122,32 +68,297 @@ class IDCardProcessor:
             raise ValueError(f"Error converting base64 to image: {e}")
     
     def image_to_base64(self, image_path: str) -> str:
-        """
-        Convert an image file to base64 string.
-        
-        Args:
-            image_path: Path to the image file
-            
-        Returns:
-            Base64 encoded string of the image
-            
-        Raises:
-            FileNotFoundError: If image file is not found
-        """
+        """Convert an image file to base64 string."""
         try:
-            # Read the image file
             with open(image_path, 'rb') as image_file:
                 image_data = image_file.read()
             
-            # Encode to base64
             base64_string = base64.b64encode(image_data).decode('utf-8')
-            
             return base64_string
             
         except FileNotFoundError:
             raise FileNotFoundError(f"Image file not found: {image_path}")
         except Exception as e:
             raise ValueError(f"Error converting image to base64: {e}")
+    
+    def detect_orientation(self, img: np.ndarray) -> int:
+        """
+        Detect the orientation of the ID card and return rotation angle.
+        
+        Returns:
+            0, 90, 180, or 270 degrees
+        """
+        try:
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            
+            # Try OCR on all 4 orientations and pick the one with most confident text
+            best_confidence = 0
+            best_rotation = 0
+            
+            for angle in [0, 90, 180, 270]:
+                try:
+                    if angle == 0:
+                        rotated = gray
+                    elif angle == 90:
+                        rotated = cv2.rotate(gray, cv2.ROTATE_90_CLOCKWISE)
+                    elif angle == 180:
+                        rotated = cv2.rotate(gray, cv2.ROTATE_180)
+                    else:  # 270
+                        rotated = cv2.rotate(gray, cv2.ROTATE_90_COUNTERCLOCKWISE)
+                    
+                    # Simple text detection approach
+                    text = pytesseract.image_to_string(rotated, lang='ron', config='--psm 3')
+                    text_length = len(text.strip())
+                    
+                    if text_length > best_confidence:
+                        best_confidence = text_length
+                        best_rotation = angle
+                except Exception as e:
+                    print(f"Warning: Failed to check orientation {angle}: {e}")
+                    continue
+            
+            return best_rotation
+        except Exception as e:
+            print(f"Warning: Orientation detection failed, using 0 degrees: {e}")
+            return 0
+    
+    def auto_rotate_image(self, img: np.ndarray) -> np.ndarray:
+        """Automatically rotate image to correct orientation."""
+        try:
+            angle = self.detect_orientation(img)
+            
+            if angle == 0:
+                return img
+            elif angle == 90:
+                return cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
+            elif angle == 180:
+                return cv2.rotate(img, cv2.ROTATE_180)
+            else:  # 270
+                return cv2.rotate(img, cv2.ROTATE_90_COUNTERCLOCKWISE)
+        except Exception as e:
+            print(f"Warning: Auto-rotation failed, using original image: {e}")
+            return img
+    
+    def enhance_image(self, img_bgr: np.ndarray) -> np.ndarray:
+        """
+        Enhanced preprocessing without aggressive cropping.
+        Handles shadows, glare, and poor lighting.
+        """
+        # Convert to grayscale
+        gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+        
+        # Adaptive histogram equalization for better contrast
+        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+        enhanced = clahe.apply(gray)
+        
+        # Denoise
+        denoised = cv2.fastNlMeansDenoising(enhanced, h=10)
+        
+        # Adaptive thresholding (better than global threshold)
+        binary = cv2.adaptiveThreshold(
+            denoised, 
+            255, 
+            cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+            cv2.THRESH_BINARY, 
+            21, 
+            10
+        )
+        
+        # Morphological operations to clean up
+        kernel = np.ones((2, 2), np.uint8)
+        morph = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
+        
+        return morph
+    
+    def preprocess_image(self, image_path: str) -> np.ndarray:
+        """
+        Complete preprocessing pipeline without cropping.
+        
+        Args:
+            image_path: Path to the input image
+            
+        Returns:
+            Preprocessed image ready for OCR
+        """
+        # Load image
+        img = self.load_image(image_path)
+        
+        # Auto-rotate to correct orientation
+        rotated = self.auto_rotate_image(img)
+        
+        # Enhance image quality
+        processed = self.enhance_image(rotated)
+        
+        return processed
+    
+    def extract_text_full_page(self, image: np.ndarray) -> str:
+        """
+        Extract all text from the full image using optimal OCR settings.
+        
+        Args:
+            image: Preprocessed image
+            
+        Returns:
+            Extracted text
+        """
+        try:
+            # Try multiple PSM modes for better results
+            configs = [
+                '--psm 3 --oem 3',  # Automatic page segmentation
+                '--psm 6 --oem 3',  # Assume uniform block of text
+                '--psm 4 --oem 3',  # Assume single column
+            ]
+            
+            best_text = ""
+            for config in configs:
+                try:
+                    text = pytesseract.image_to_string(image, config=config, lang='ron')
+                    if len(text.strip()) > len(best_text):
+                        best_text = text
+                except Exception as e:
+                    print(f"Warning: OCR with config '{config}' failed: {e}")
+                    continue
+            
+            return best_text.strip() if best_text else ""
+        except Exception as e:
+            print(f"Error: All OCR attempts failed: {e}")
+            return ""
+    
+    def extract_structured_data(self, image: np.ndarray) -> Dict:
+        """
+        Extract structured data from ID card using pytesseract's data output.
+        
+        Returns:
+            Dictionary with bounding boxes and text
+        """
+        data = pytesseract.image_to_data(
+            image, 
+            output_type=pytesseract.Output.DICT,
+            lang='ron',
+            config='--psm 3 --oem 3'
+        )
+        
+        return data
+    
+    def parse_romanian_id_card(self, text: str) -> Dict[str, str]:
+        """
+        Parse Romanian ID card text and extract key fields.
+        Uses pattern matching instead of hardcoded positions.
+        """
+        import re
+        
+        lines = [line.strip() for line in text.split('\n') if line.strip()]
+        
+        result = {
+            "first_name": "",
+            "last_name": "",
+            "serie": "",
+            "nr": "",
+            "cnp": "",
+            "place_of_birth": "",
+            "address": "",
+            "expiration_date": "",
+            "success": False
+        }
+        
+        try:
+            # Combine all text for pattern matching
+            full_text = ' '.join(lines)
+            full_text_upper = full_text.upper()
+            
+            # Extract patterns
+            for i, line in enumerate(lines):
+                line_clean = line.strip()
+                line_upper = line_clean.upper()
+                
+                # Look for name (usually has < symbols or all caps)
+                if '<' in line_clean:
+                    if not result["last_name"]:
+                        parts = line_clean.split('<')
+                        result["last_name"] = parts[0].strip()
+                        first_parts = [p.strip() for p in parts[1:] if p.strip()]
+                        result["first_name"] = ' '.join(first_parts)
+                        result["success"] = True
+                
+                # Look for serie + number - more flexible patterns
+                # Pattern: 2-3 letters followed by 6-7 digits
+                serie_match = re.search(r'\b([A-Z]{2,3})\s*(\d{6,7})\b', line_upper)
+                if serie_match and not result["serie"]:
+                    result["serie"] = serie_match.group(1)
+                    result["nr"] = serie_match.group(2)
+                    result["success"] = True
+                
+                # Look for CNP - 13 consecutive digits
+                cnp_match = re.search(r'\b([1-9]\d{12})\b', line_clean)
+                if cnp_match and not result["cnp"]:
+                    result["cnp"] = cnp_match.group(1)
+                    result["success"] = True
+                    
+                    # Try to find expiration date nearby (6 digits)
+                    exp_match = re.search(r'\b(\d{2}\.\d{2}\.\d{2,4})\b', full_text)
+                    if exp_match:
+                        result["expiration_date"] = exp_match.group(1)
+                
+                # Look for address keywords
+                address_keywords = ['STR.', 'STRADA', 'BD.', 'BULEVARDUL', 'NR.', 'BL.', 'BLOC', 'AP.']
+                if any(kw in line_upper for kw in address_keywords):
+                    if not result["address"]:
+                        result["address"] = line_clean
+                        result["success"] = True
+                
+                # Look for place of birth
+                birth_keywords = ['JUD.', 'JUDET', 'MUN.', 'MUNICIPIUL', 'LOC.', 'COM.', 'COMUNA']
+                if any(kw in line_upper for kw in birth_keywords):
+                    if not result["place_of_birth"]:
+                        result["place_of_birth"] = line_clean
+                        result["success"] = True
+            
+            # If still no name found, try alternative approaches
+            if not result["last_name"]:
+                # Look for lines with mostly uppercase letters
+                for line in lines:
+                    if len(line) > 5 and sum(1 for c in line if c.isupper()) > len(line) * 0.7:
+                        words = line.split()
+                        if len(words) >= 2:
+                            result["last_name"] = words[0]
+                            result["first_name"] = ' '.join(words[1:])
+                            result["success"] = True
+                            break
+            
+            # Clean up empty strings
+            result = {k: v.strip() if isinstance(v, str) else v for k, v in result.items()}
+            
+            return result
+            
+        except Exception as e:
+            print(f"Error parsing ID card data: {e}")
+            result["success"] = False
+            result["error"] = str(e)
+            return result
+    
+    def process_id_card(self, image_path: str) -> Dict[str, str]:
+        """
+        Complete processing pipeline: preprocess, extract, and parse.
+        
+        Args:
+            image_path: Path to the ID card image
+            
+        Returns:
+            Dictionary with all processed field values
+        """
+        # Preprocess image
+        processed_image = self.preprocess_image(image_path)
+        
+        # Extract all text
+        full_text = self.extract_text_full_page(processed_image)
+        
+        # Parse structured data
+        result = self.parse_romanian_id_card(full_text)
+        
+        # Store raw text for debugging
+        result["_raw_text"] = full_text
+        
+        return result
     
     def process_id_card_from_base64(self, base64_string: str, cleanup_temp: bool = True) -> Dict[str, str]:
         """
@@ -159,9 +370,6 @@ class IDCardProcessor:
             
         Returns:
             Dictionary with all processed field values
-            
-        Raises:
-            ValueError: If base64 string is invalid
         """
         temp_image_path = None
         try:
@@ -181,294 +389,98 @@ class IDCardProcessor:
                 except Exception as e:
                     print(f"Warning: Could not delete temporary file {temp_image_path}: {e}")
     
-    def crop_image(self, img: np.ndarray) -> np.ndarray:
-        """
-        Crop the image to the specified region and rotate 90 degrees counterclockwise.
-        
-        Args:
-            img: Input image
-            
-        Returns:
-            Cropped and rotated image
-        """
-        img_rotated = cv2.rotate(img, cv2.ROTATE_90_COUNTERCLOCKWISE)
-        h, w = img_rotated.shape[:2]
-        
-        x1 = int(self.crop_region['x1'] * w)
-        y1 = int(self.crop_region['y1'] * h)
-        x2 = int(self.crop_region['x2'] * w)
-        y2 = int(self.crop_region['y2'] * h)
-        
-        return img_rotated[y1:y2, x1:x2]
-    
-    def remove_shadows_and_binarize(self, img_bgr: np.ndarray, 
-                                   ksize: int = 61, 
-                                   threshold: int = 80) -> np.ndarray:
-        """
-        Remove shadows and binarize the image for better OCR results.
-        
-        Args:
-            img_bgr: Input BGR image
-            ksize: Kernel size for median blur (should be odd)
-            threshold: Binary threshold value
-            
-        Returns:
-            Binarized grayscale image
-        """
-        gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
-        
-        # Estimate illumination (background)
-        bg = cv2.medianBlur(gray, ksize)
-        
-        # Flatten illumination (division keeps text contrast)
-        norm = cv2.divide(gray, bg, scale=255)
-        
-        # Optional: local contrast to enhance text
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-        enhanced = clahe.apply(norm)
-        
-        # Binarize
-        _, binary = cv2.threshold(enhanced, threshold, 255, cv2.THRESH_BINARY)
-        
-        return binary
-    
-    def preprocess_image(self, image_path: str) -> np.ndarray:
-        """
-        Complete preprocessing pipeline: load, crop, remove shadows, and resize.
-        
-        Args:
-            image_path: Path to the input image
-            
-        Returns:
-            Preprocessed image ready for OCR
-        """
-        img = self.load_image(image_path)
-        cropped = self.crop_image(img)
-        processed = self.remove_shadows_and_binarize(cropped)
-        resized = cv2.resize(processed, (self.TARGET_WIDTH, self.TARGET_HEIGHT))
-        return resized
-    
-    def extract_field_text(self, image: np.ndarray, field_name: str) -> str:
-        """
-        Extract text from a specific field using OCR.
-        
-        Args:
-            image: Preprocessed image
-            field_name: Name of the field to extract
-            
-        Returns:
-            Extracted and cleaned text
-        """
-        if field_name not in self.crop_boxes:
-            raise ValueError(f"Unknown field: {field_name}")
-        
-        x1, y1, x2, y2 = self.crop_boxes[field_name]
-        roi = image[y1:y2, x1:x2]
-        
-        config = self.tess_config.get(field_name, "--psm 7")
-        text = pytesseract.image_to_string(roi, config=config, lang='ron')
-        
-        return text.strip().replace("\n", " ")
-    
-    def extract_all_fields(self, image_path: str) -> List[Tuple[str, str]]:
-        """
-        Extract all configured fields from the ID card image.
-        
-        Args:
-            image_path: Path to the input image
-            
-        Returns:
-            List of tuples (field_name, extracted_text)
-        """
-        processed_image = self.preprocess_image(image_path)
-        
-        results = []
-        for field_name in self.crop_boxes.keys():
-            text = self.extract_field_text(processed_image, field_name)
-            results.append((field_name, text))
-        
-        return results
-    
-    def _process_full_name(self, text: str) -> Dict[str, str]:
-        """Process the full name field to extract first and last names."""
-        remaining_str = text[5:] if len(text) > 5 else text
-        
-        first_bracket_pos = remaining_str.find('<')
-        
-        if first_bracket_pos == -1:
-            last_name = remaining_str
-            first_name = ""
-        else:
-            last_name = remaining_str[:first_bracket_pos]
-            first_name_part = remaining_str[first_bracket_pos:]
-            first_name = first_name_part.replace('<', '-').strip('-')
-        
-        return {"first_name": first_name, "last_name": last_name}
-    
-    def _process_serie_nr(self, text: str) -> Dict[str, str]:
-        """Process the series number field."""
-        processed_text = "".join(text.split()).upper()
-        return {
-            "serie": processed_text[:2],
-            "nr": processed_text[2:]
-        }
-    
-    def _process_cnp(self, text: str) -> Dict[str, str]:
-        """Process the CNP field to extract CNP and expiration date."""
-        # Find gender marker (M or F)
-        gender_pos = -1
-        gender_char = ""
-        
-        for i, char in enumerate(text):
-            if char in ['M', 'F']:
-                gender_pos = i
-                gender_char = char
-                break
-        
-        if gender_pos == -1:
-            raise ValueError("No M or F found in CNP string")
-        
-        # Extract first two digits
-        first_two_digits = text[:2]
-        first_two_number = int(first_two_digits)
-        
-        # Determine first digit of CNP based on gender and year
-        if gender_char == 'M':
-            first_digit = '1' if first_two_number > 20 else '5'
-        else:  # gender_char == 'F'
-            first_digit = '2' if first_two_number > 20 else '6'
-        
-        # Construct CNP and expiration date
-        first_six = text[:6]
-        last_six = text[-6:]
-        cnp = first_digit + first_six + last_six
-        remaining_part = text[6:-6]
-        
-        return {
-            "cnp": cnp,
-            "expiration_date": remaining_part[-6:] if remaining_part else ""
-        }
-    
-    def convert_to_json(self, extracted_fields: List[Tuple[str, str]]) -> Dict[str, str]:
-        """
-        Convert extracted OCR fields to a structured JSON format.
-        
-        Args:
-            extracted_fields: List of tuples (field_name, extracted_text)
-            
-        Returns:
-            Dictionary with processed field values
-        """
-        json_result = {}
-        
-        for field_name, text in extracted_fields:
-            if field_name == "nume_full":
-                json_result.update(self._process_full_name(text))
-            elif field_name == "serie_nr":
-                json_result.update(self._process_serie_nr(text))
-            elif field_name == "place_of_birth":
-                json_result["place_of_birth"] = text
-            elif field_name == "address":
-                json_result["address"] = text
-            elif field_name == "cnp":
-                json_result.update(self._process_cnp(text))
-            else:
-                # Default processing for unknown fields
-                json_result[field_name] = " ".join(text.split())
-        
-        return json_result
-    
-    def process_id_card(self, image_path: str) -> Dict[str, str]:
-        """
-        Complete processing pipeline: extract fields and convert to JSON.
-        
-        Args:
-            image_path: Path to the ID card image
-            
-        Returns:
-            Dictionary with all processed field values
-        """
-        extracted_fields = self.extract_all_fields(image_path)
-        return self.convert_to_json(extracted_fields)
-    
-    def draw_crop_grid(self, image_path: str, output_path: str = "id_card_grid.jpg",
-                      color: Tuple[int, int, int] = (0, 255, 0), thickness: int = 2):
-        """
-        Draw crop boxes on the image for visualization and debugging.
-        
-        Args:
-            image_path: Path to the input image
-            output_path: Path to save the output image with grid
-            color: Color of the grid lines (BGR format)
-            thickness: Thickness of the grid lines
-        """
-        processed_image = self.preprocess_image(image_path)
-        
-        # Convert to color for drawing
-        color_image = cv2.cvtColor(processed_image, cv2.COLOR_GRAY2BGR)
-        
-        # Draw each crop box
-        for label, (x1, y1, x2, y2) in self.crop_boxes.items():
-            cv2.rectangle(color_image, (x1, y1), (x2, y2), color, thickness)
-            cv2.putText(color_image, label, (x1, y1 - 8),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2, cv2.LINE_AA)
-        
-        cv2.imwrite(output_path, color_image)
-        print(f"[✔] Grid saved to {output_path}")
-    
     def save_processed_image(self, image_path: str, output_path: str = "processed_image.jpg"):
-        """
-        Save the preprocessed image for debugging purposes.
-        
-        Args:
-            image_path: Path to the input image
-            output_path: Path to save the processed image
-        """
+        """Save the preprocessed image for debugging."""
         processed_image = self.preprocess_image(image_path)
         cv2.imwrite(output_path, processed_image)
         print(f"[✔] Processed image saved to {output_path}")
+    
+    def visualize_text_regions(self, image_path: str, output_path: str = "text_regions.jpg"):
+        """
+        Visualize detected text regions on the image.
+        Useful for debugging.
+        """
+        img = self.load_image(image_path)
+        rotated = self.auto_rotate_image(img)
+        processed = self.enhance_image(rotated)
+        
+        # Get structured data with bounding boxes
+        data = self.extract_structured_data(processed)
+        
+        # Convert back to color for visualization
+        color_img = cv2.cvtColor(processed, cv2.COLOR_GRAY2BGR)
+        
+        n_boxes = len(data['text'])
+        for i in range(n_boxes):
+            if int(data['conf'][i]) > 30:  # Only show confident detections
+                (x, y, w, h) = (data['left'][i], data['top'][i], 
+                               data['width'][i], data['height'][i])
+                color_img = cv2.rectangle(color_img, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                
+                # Add text label
+                text = data['text'][i]
+                if text.strip():
+                    cv2.putText(color_img, text[:20], (x, y - 5),
+                              cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
+        
+        cv2.imwrite(output_path, color_img)
+        print(f"[✔] Text regions visualization saved to {output_path}")
 
 
 # Example usage
 if __name__ == "__main__":
     processor = IDCardProcessor()
     
-    # Example 1: Process from file path and get JSON result
+    # Example 1: Process from file path
     try:
+        print("Processing ID card from file...")
         result = processor.process_id_card("test.png")
-        print("Extracted Information from file:")
-        print("-" * 40)
-        for field, value in result.items():
-            print(f"{field.replace('_', ' ').title()}: {value}")
         
-        # Get JSON string if needed
-        json_string = json.dumps(result, ensure_ascii=False, indent=2)
-        print("\nJSON Result:")
+        print("\n" + "="*50)
+        print("EXTRACTED INFORMATION")
+        print("="*50)
+        
+        for field, value in result.items():
+            if field != "_raw_text":
+                print(f"{field.replace('_', ' ').title()}: {value}")
+        
+        # Show raw text for debugging
+        print("\n" + "-"*50)
+        print("RAW OCR TEXT:")
+        print("-"*50)
+        print(result.get("_raw_text", ""))
+        
+        # Convert to JSON
+        json_output = {k: v for k, v in result.items() if k != "_raw_text"}
+        json_string = json.dumps(json_output, ensure_ascii=False, indent=2)
+        print("\n" + "-"*50)
+        print("JSON OUTPUT:")
+        print("-"*50)
         print(json_string)
         
-        # Convert image to base64
-        base64_string = processor.image_to_base64("test.png")
-        print(f"\n[✔] Image converted to base64 (length: {len(base64_string)} characters)")
-        
     except Exception as e:
-        print(f"Error processing ID card from file: {e}")
+        print(f"Error processing ID card: {e}")
+        import traceback
+        traceback.print_exc()
     
-    # Example 2: Process from base64 string and get JSON result
+    # Example 2: Process from base64
     try:
-        # First convert an existing image to base64 for demonstration
+        print("\n\nProcessing from base64...")
         base64_string = processor.image_to_base64("test.png")
+        result_base64 = processor.process_id_card_from_base64(base64_string)
         
-        # Then process the base64 string
-        result_from_base64 = processor.process_id_card_from_base64(base64_string)
-        print("\n\nExtracted Information from base64:")
-        print("-" * 40)
-        for field, value in result_from_base64.items():
-            print(f"{field.replace('_', ' ').title()}: {value}")
-        
-        # Get JSON string
-        json_string_from_base64 = json.dumps(result_from_base64, ensure_ascii=False, indent=2)
-        print("\nJSON Result from base64:")
-        print(json_string_from_base64)
+        json_output = {k: v for k, v in result_base64.items() if k != "_raw_text"}
+        print("Base64 result:")
+        print(json.dumps(json_output, ensure_ascii=False, indent=2))
         
     except Exception as e:
-        print(f"Error processing ID card from base64: {e}")
+        print(f"Error processing from base64: {e}")
+    
+    # Example 3: Debug visualizations
+    try:
+        print("\n\nCreating debug visualizations...")
+        processor.save_processed_image("test.png", "debug_processed.jpg")
+        processor.visualize_text_regions("test.png", "debug_text_regions.jpg")
+        print("[✔] Debug images created successfully")
+    except Exception as e:
+        print(f"Error creating visualizations: {e}")
