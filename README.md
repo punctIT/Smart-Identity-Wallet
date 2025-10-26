@@ -677,8 +677,6 @@ We welcome contributions to the Smart Identity Wallet project! Here's how you ca
 
 **Smart Identity Wallet** - Securing your digital identity, one document at a time.
 
-Made with ❤️ for the Romanian digital identity ecosystem.
-
 ---
 
 </div>
