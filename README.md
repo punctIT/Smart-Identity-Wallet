@@ -4,7 +4,6 @@
 
 ![Smart Identity Wallet](https://img.shields.io/badge/Smart%20Identity%20Wallet-v0.1-blue?style=for-the-badge)
 ![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20Desktop-green?style=for-the-badge)
-![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)
 
 *A secure, AI-powered digital wallet for Romanian identity documents with advanced OCR capabilities*
 
