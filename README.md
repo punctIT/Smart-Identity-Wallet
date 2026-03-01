@@ -1,4 +1,4 @@
-# 🏆 Smart Identity Wallet
+# Smart Identity Wallet
 
 <div align="center">
 
@@ -13,23 +13,23 @@
 
 ---
 
-## 📝 Project Overview
+## Project Overview
 
 **Smart Identity Wallet** is a comprehensive digital identity management system specifically designed for Romanian identity documents. It combines cutting-edge OCR technology with secure cryptographic storage to provide users with a seamless and secure way to digitize, store, and manage their official documents.
 
-### 🎯 Project Idea
+### Project Idea
 
 The core concept is to eliminate the need to carry physical identity documents by providing:
 
-- **📱 Mobile-First Design**: Android app with intuitive camera-based document capture
-- **🔍 Advanced OCR**: AI-powered text extraction supporting Romanian diacritics and document formats
-- **🔐 Cryptographic Security**: AES-256-GCM encryption for sensitive data protection
-- **🌐 Self-Hosted**: Complete control over your data with private server deployment
-- **🤖 AI Integration**: Smart document processing with automated field validation
+- **Mobile-First Design**: Android app with intuitive camera-based document capture
+- **Advanced OCR**: AI-powered text extraction supporting Romanian diacritics and document formats
+- **Cryptographic Security**: AES-256-GCM encryption for sensitive data protection
+- **Self-Hosted**: Complete control over your data with private server deployment
+- **AI Integration**: Smart document processing with automated field validation
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ### System Components
 
@@ -67,7 +67,7 @@ graph TB
     F --> K
 ```
 
-### 🔧 Technology Stack
+### Technology Stack
 
 | Component | Technology | Purpose |
 |-----------|------------|---------|
@@ -78,7 +78,7 @@ graph TB
 | **OCR Engine** | Tesseract + OpenCV | Text extraction and image processing |
 | **Security** | AES-256-GCM, Argon2 | Data encryption and password hashing |
 
-### 📦 Project Structure
+### Project Structure
 
 ```
 Smart-Identity-Wallet/
@@ -109,21 +109,21 @@ Smart-Identity-Wallet/
 
 ---
 
-## ⭐ Features
+## Features
 
-### 🔐 Security & Privacy
+### Security & Privacy
 - **End-to-End Encryption**: AES-256-GCM encryption for all sensitive data
 - **Secure Authentication**: Argon2 password hashing with session management
 - **Self-Hosted**: Complete control over your data - no third-party dependencies
 - **HTTPS Communication**: All client-server communication over encrypted channels
 
-### 📱 Mobile Experience
+### Mobile Experience
 - **Intuitive Camera Interface**: Point, shoot, and automatically process documents
 - **Real-Time Preview**: Live camera feed with document detection
 - **Automatic Document Naming**: Photos saved as `document.jpg` for easy processing
 - **Offline Capability**: Core functionality works without internet connection
 
-### 🤖 AI-Powered OCR
+### AI-Powered OCR
 - **Romanian Language Support**: Native support for Romanian diacritics (ă, â, î, ș, ț)
 - **Multi-Field Extraction**: Automatically extracts:
   - Full name (first and last name separation)
@@ -137,7 +137,7 @@ Smart-Identity-Wallet/
   - Automatic rotation and perspective correction
   - Document boundary detection
 
-### 📋 Document Management
+### Document Management
 - **Multiple Document Types**: Support for various Romanian documents
   - Identity Cards (Carte de Identitate)
   - Passports (Pașaport)
@@ -147,14 +147,14 @@ Smart-Identity-Wallet/
   - Marriage Certificates (Certificat de Căsătorie)
   - Diplomas and other official documents
 
-### 🔄 Real-Time Processing
+### Real-Time Processing
 - **Live Server Status**: Real-time connection monitoring
 - **Background Processing**: Non-blocking OCR processing
 - **Progress Indicators**: Visual feedback during document processing
 
 ---
 
-## 🚀 Setup & Installation
+## Setup & Installation
 
 ### Prerequisites
 
@@ -170,7 +170,7 @@ Smart-Identity-Wallet/
 - **Android SDK**: API Level 33
 - **Android NDK**: r25b
 
-### 🗄️ Database Setup
+### Database Setup
 
 1. **Install PostgreSQL**:
    ```bash
@@ -203,7 +203,7 @@ Smart-Identity-Wallet/
    ENCRYPTION_KEY=your_32_byte_base64_key_here
    ```
 
-### 🔑 SSL Certificate Generation
+### SSL Certificate Generation
 
 The server requires SSL certificates for HTTPS communication. You have several options:
 
@@ -260,7 +260,7 @@ sudo cp /etc/letsencrypt/live/yourdomain.com/privkey.pem /Smart-Identity-Wallet/
 sudo chown $USER:$USER /Smart-Identity-Wallet/server/certs/*
 ```
 
-### 🧠 AI Service Setup
+### AI Service Setup
 
 1. **Install Python Dependencies**:
    ```bash
@@ -311,7 +311,7 @@ sudo chown $USER:$USER /Smart-Identity-Wallet/server/certs/*
    pip install -r requirements.txt
    ```
 
-### ⚙️ Server Setup
+### Server Setup
 
 1. **Install Rust**:
    ```bash
@@ -332,7 +332,7 @@ sudo chown $USER:$USER /Smart-Identity-Wallet/server/certs/*
 
    The server will start on `https://0.0.0.0:8443`
 
-### 📱 Client Setup
+### Client Setup
 
 #### For Desktop Testing
 1. **Install Python Dependencies**:
@@ -385,9 +385,9 @@ sudo chown $USER:$USER /Smart-Identity-Wallet/server/certs/*
 
 ---
 
-## 🎮 Usage Guide
+## Usage Guide
 
-### 🚀 Starting the System
+### Starting the System
 
 1. **Start the AI Service** (Port 8001):
    ```bash
@@ -409,7 +409,7 @@ sudo chown $USER:$USER /Smart-Identity-Wallet/server/certs/*
    python main.py
    ```
 
-### 📲 Using the Mobile App
+### Using the Mobile App
 
 1. **Server Configuration**:
    - Launch the app and enter your server IP address
@@ -431,7 +431,7 @@ sudo chown $USER:$USER /Smart-Identity-Wallet/server/certs/*
    - Extracted fields are displayed for review and editing
    - Data can be saved to your secure digital wallet
 
-### 🔧 API Endpoints
+### API Endpoints
 
 #### Public Endpoints
 - `GET /health` - Server health check
@@ -450,7 +450,7 @@ sudo chown $USER:$USER /Smart-Identity-Wallet/server/certs/*
 
 ---
 
-## 🔧 Configuration
+## Configuration
 
 ### Server Configuration
 
@@ -504,7 +504,7 @@ DEFAULT_TESS_CONFIG = {
 
 ---
 
-## 🛠️ Development
+## Development
 
 ### Python Dependencies
 
@@ -541,7 +541,7 @@ See `server/Cargo.toml` for complete dependency list:
 - **aes-gcm**: Encryption
 - **reqwest**: HTTP client for AI service communication
 
-### 🧪 Testing
+### Testing
 
 #### Test OCR Functionality
 ```bash
@@ -566,7 +566,7 @@ curl http://localhost:8001/health
 
 ---
 
-## 📋 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
@@ -634,7 +634,7 @@ pip install fastapi uvicorn opencv-python pytesseract pillow numpy python-dotenv
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 We welcome contributions to the Smart Identity Wallet project! Here's how you can help:
 
@@ -654,16 +654,16 @@ We welcome contributions to the Smart Identity Wallet project! Here's how you ca
 - **Documentation**: Update README for any new features
 
 ### Areas for Contribution
-- 📱 UI/UX improvements
-- 🔍 OCR accuracy enhancements
-- 🌐 Additional language support
-- 🔐 Security improvements
-- 📋 Additional document types
-- 🧪 Test coverage
+- UI/UX improvements
+- OCR accuracy enhancements
+- Additional language support
+- Security improvements
+- Additional document types
+- Test coverage
 
 ---
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - **Tesseract OCR**: For excellent open-source OCR capabilities
 - **Kivy/KivyMD**: For cross-platform mobile development framework
